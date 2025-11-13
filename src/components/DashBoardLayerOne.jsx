@@ -889,6 +889,8 @@ const DashBoardLayerOne = () => {
         </div>
       </div>
 
+      <br />
+
       {/* Top Products by Sales and Top Stores by Sales */}
       <div className="row gy-4 mb-4">
         <div className="col-xxl-8 col-xl-12">
@@ -925,6 +927,8 @@ const DashBoardLayerOne = () => {
           </div>
         </div>
       </div>
+
+      <br />
 
       {/* Targets Analysis */}
       <div className="row gy-4 mb-4">
@@ -1168,6 +1172,8 @@ const DashBoardLayerOne = () => {
           </div>
         </div>
       </div>
+
+      <br />
 
       {/* Top Stores Performance */}
       <div className="row gy-4">
