@@ -229,18 +229,18 @@ const StoreDashboard = ({ storeName }) => {
       .map(([product, sales]) => ({ product, sales }));
   }, [filteredData]);
 
-  // Top stores by sales (for chart) - will show this store's performance over time
-  const topStoresBySales = useMemo(() => {
-    const storeSales = {};
+  // Product distribution data
+  const productDistribution = useMemo(() => {
+    const productSales = {};
     filteredData.forEach((item) => {
-      storeSales[item.storename] =
-        (storeSales[item.storename] || 0) + item.sale;
+      productSales[item.product] =
+        (productSales[item.product] || 0) + item.sale;
     });
 
-    return Object.entries(storeSales)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 10)
-      .map(([storename, sales]) => ({ storename, sales }));
+    return {
+      products: Object.keys(productSales),
+      values: Object.values(productSales),
+    };
   }, [filteredData]);
 
   // Calculate dynamic target
@@ -411,6 +411,28 @@ const StoreDashboard = ({ storeName }) => {
 
   const categoryPieChartSeries = categoryDistribution.values;
 
+  // Product Distribution Chart
+  const productPieChartOptions = {
+    chart: { type: "donut", height: 350 },
+    labels: productDistribution.products,
+    colors: [
+      "#487FFF",
+      "#10B981",
+      "#F59E0B",
+      "#EF4444",
+      "#8B5CF6",
+      "#EC4899",
+      "#06B6D4",
+      "#84CC16",
+      "#F97316",
+      "#A855F7",
+    ],
+    legend: { position: "bottom" },
+    tooltip: { theme: "light" },
+  };
+
+  const productPieChartSeries = productDistribution.values;
+
   // Top Products Bar Chart
   const topProductsBarChartOptions = {
     chart: {
@@ -481,101 +503,6 @@ const StoreDashboard = ({ storeName }) => {
     {
       name: "Sales",
       data: topProductsBySales.map((item) => item.sales),
-    },
-  ];
-
-  // Top Stores Horizontal Bar Chart (showing this store's performance)
-  const topStoresBarChartOptions = {
-    chart: {
-      type: "bar",
-      height: 350,
-      toolbar: { show: false },
-    },
-    plotOptions: {
-      bar: {
-        horizontal: true,
-        barHeight: "70%",
-        borderRadius: 8,
-        dataLabels: {
-          position: "right",
-        },
-      },
-    },
-    dataLabels: {
-      enabled: true,
-      textAnchor: "start",
-      style: {
-        colors: ["#fff"],
-        fontSize: "12px",
-        fontWeight: 600,
-      },
-      formatter: function (val) {
-        return val.toLocaleString();
-      },
-      offsetX: 0,
-      dropShadow: {
-        enabled: false,
-      },
-    },
-    colors: ["#10B981"],
-    xaxis: {
-      categories: topStoresBySales.map((item) => item.storename),
-      labels: {
-        style: {
-          fontSize: "12px",
-          fontWeight: 600,
-        },
-      },
-    },
-    yaxis: {
-      labels: {
-        style: {
-          fontSize: "12px",
-          fontWeight: 600,
-        },
-      },
-    },
-    grid: {
-      borderColor: "#e7e7e7",
-      strokeDashArray: 3,
-      xaxis: {
-        lines: {
-          show: true,
-        },
-      },
-      yaxis: {
-        lines: {
-          show: true,
-        },
-      },
-    },
-    tooltip: {
-      theme: "light",
-      y: {
-        formatter: function (val) {
-          return val.toLocaleString() + " units";
-        },
-      },
-    },
-    fill: {
-      type: "gradient",
-      gradient: {
-        shade: "light",
-        type: "vertical",
-        shadeIntensity: 0.4,
-        gradientToColors: ["#059669"],
-        inverseColors: false,
-        opacityFrom: 1,
-        opacityTo: 0.8,
-        stops: [0, 100],
-      },
-    },
-  };
-
-  const topStoresBarChartSeries = [
-    {
-      name: "Sales",
-      data: topStoresBySales.map((item) => item.sales),
     },
   ];
 
@@ -866,7 +793,9 @@ const StoreDashboard = ({ storeName }) => {
         </div>
       </div>
 
-      {/* Top Products by Sales and Top Stores by Sales */}
+      <br />
+
+      {/* Top Products by Sales and Product Distribution */}
       <div className="row gy-4 mb-4">
         <div className="col-xxl-8 col-xl-12">
           <div className="card h-100">
@@ -889,19 +818,21 @@ const StoreDashboard = ({ storeName }) => {
         <div className="col-xxl-4 col-xl-12">
           <div className="card h-100">
             <div className="card-header border-bottom bg-base py-16 px-24">
-              <h6 className="text-lg fw-semibold mb-0">Store Performance</h6>
+              <h6 className="text-lg fw-semibold mb-0">Product Distribution</h6>
             </div>
             <div className="card-body p-24">
               <ReactApexChart
-                options={topStoresBarChartOptions}
-                series={topStoresBarChartSeries}
-                type="bar"
+                options={productPieChartOptions}
+                series={productPieChartSeries}
+                type="donut"
                 height={350}
               />
             </div>
           </div>
         </div>
       </div>
+
+      <br />
 
       {/* Targets Analysis */}
       <div className="row gy-4 mb-4">
