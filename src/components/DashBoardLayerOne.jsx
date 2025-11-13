@@ -230,6 +230,20 @@ const DashBoardLayerOne = () => {
       .map(([category, sales]) => ({ category, sales }));
   }, [filteredData]);
 
+  // Top stores by sales (for chart)
+  const topStoresBySales = useMemo(() => {
+    const storeSales = {};
+    filteredData.forEach((item) => {
+      storeSales[item.storename] =
+        (storeSales[item.storename] || 0) + item.sale;
+    });
+
+    return Object.entries(storeSales)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10)
+      .map(([storename, sales]) => ({ storename, sales }));
+  }, [filteredData]);
+
   // Top stores performance
   const topStores = useMemo(() => {
     const storeSales = {};
@@ -305,6 +319,164 @@ const DashBoardLayerOne = () => {
   };
 
   const categoryPieChartSeries = categoryDistribution.values;
+
+  // Top Products Bar Chart
+  const topProductsBarChartOptions = {
+    chart: {
+      type: "bar",
+      height: 350,
+      toolbar: { show: false },
+    },
+    plotOptions: {
+      bar: {
+        horizontal: false,
+        columnWidth: "55%",
+        borderRadius: 4,
+      },
+    },
+    dataLabels: {
+      enabled: false,
+    },
+    stroke: {
+      show: true,
+      width: 2,
+      colors: ["transparent"],
+    },
+    xaxis: {
+      categories: topProductsBySales.map((item) => item.product),
+      labels: {
+        rotate: -45,
+        rotateAlways: true,
+        style: {
+          fontSize: "12px",
+        },
+      },
+    },
+    yaxis: {
+      title: {
+        text: "Sales",
+      },
+    },
+    fill: {
+      opacity: 1,
+      colors: ["#487FFF"],
+    },
+    colors: ["#487FFF"],
+    grid: {
+      borderColor: "#e7e7e7",
+      strokeDashArray: 3,
+    },
+    tooltip: {
+      theme: "light",
+      y: {
+        formatter: function (val) {
+          return val.toLocaleString() + " units";
+        },
+      },
+    },
+  };
+
+  const topProductsBarChartSeries = [
+    {
+      name: "Sales",
+      data: topProductsBySales.map((item) => item.sales),
+    },
+  ];
+
+  // Top Stores Horizontal Bar Chart
+  const topStoresBarChartOptions = {
+    chart: {
+      type: "bar",
+      height: 350,
+      toolbar: { show: false },
+    },
+    plotOptions: {
+      bar: {
+        horizontal: true,
+        barHeight: "70%",
+        borderRadius: 8,
+        dataLabels: {
+          position: "right",
+        },
+      },
+    },
+    dataLabels: {
+      enabled: true,
+      textAnchor: "start",
+      style: {
+        colors: ["#fff"],
+        fontSize: "12px",
+        fontWeight: 600,
+      },
+      formatter: function (val) {
+        return val.toLocaleString();
+      },
+      offsetX: 0,
+      dropShadow: {
+        enabled: false,
+      },
+    },
+    colors: ["#10B981"],
+    xaxis: {
+      categories: topStoresBySales.map((item) => item.storename),
+      labels: {
+        style: {
+          fontSize: "12px",
+          fontWeight: 600,
+        },
+      },
+    },
+    yaxis: {
+      labels: {
+        style: {
+          fontSize: "12px",
+          fontWeight: 600,
+        },
+      },
+    },
+    grid: {
+      borderColor: "#e7e7e7",
+      strokeDashArray: 3,
+      xaxis: {
+        lines: {
+          show: true,
+        },
+      },
+      yaxis: {
+        lines: {
+          show: false,
+        },
+      },
+    },
+    tooltip: {
+      theme: "light",
+      y: {
+        formatter: function (val) {
+          return val.toLocaleString() + " units";
+        },
+      },
+    },
+    fill: {
+      type: "gradient",
+      gradient: {
+        shade: "light",
+        type: "vertical",
+        shadeIntensity: 0.4,
+        gradientToColors: ["#059669"],
+        inverseColors: false,
+        opacityFrom: 1,
+        opacityTo: 0.8,
+        stops: [0, 100],
+      },
+    },
+  };
+
+  const topStoresBarChartSeries = [
+    {
+      name: "Sales",
+      data: topStoresBySales.map((item) => item.sales),
+    },
+  ];
 
   return (
     <>
@@ -591,30 +763,12 @@ const DashBoardLayerOne = () => {
               </h6>
             </div>
             <div className="card-body p-24">
-              <div className="table-responsive">
-                <table className="table table-hover">
-                  <thead>
-                    <tr>
-                      <th>Rank</th>
-                      <th>Product</th>
-                      <th className="text-end">Sales</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {topProductsBySales.map((item, index) => (
-                      <tr key={item.product}>
-                        <td>
-                          <span className="badge bg-primary">{index + 1}</span>
-                        </td>
-                        <td className="fw-semibold">{item.product}</td>
-                        <td className="text-end fw-bold">
-                          {item.sales.toLocaleString()}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <ReactApexChart
+                options={topProductsBarChartOptions}
+                series={topProductsBarChartSeries}
+                type="bar"
+                height={350}
+              />
             </div>
           </div>
         </div>
@@ -622,35 +776,15 @@ const DashBoardLayerOne = () => {
         <div className="col-xxl-6 col-xl-12">
           <div className="card h-100">
             <div className="card-header border-bottom bg-base py-16 px-24">
-              <h6 className="text-lg fw-semibold mb-0">
-                Top Categories by Sales
-              </h6>
+              <h6 className="text-lg fw-semibold mb-0">Top Stores by Sales</h6>
             </div>
             <div className="card-body p-24">
-              <div className="table-responsive">
-                <table className="table table-hover">
-                  <thead>
-                    <tr>
-                      <th>Rank</th>
-                      <th>Category</th>
-                      <th className="text-end">Sales</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {topCategoriesBySales.map((item, index) => (
-                      <tr key={item.category}>
-                        <td>
-                          <span className="badge bg-success">{index + 1}</span>
-                        </td>
-                        <td className="fw-semibold">{item.category}</td>
-                        <td className="text-end fw-bold">
-                          {item.sales.toLocaleString()}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <ReactApexChart
+                options={topStoresBarChartOptions}
+                series={topStoresBarChartSeries}
+                type="bar"
+                height={350}
+              />
             </div>
           </div>
         </div>
