@@ -9,37 +9,41 @@ const ReactApexChart = dynamic(() => import("react-apexcharts"), {
   ssr: false,
 });
 
-const DashBoardLayerOne = () => {
+const StoreDashboard = ({ storeName }) => {
   const [filterType, setFilterType] = useState("yearly");
   const [selectedYear, setSelectedYear] = useState("");
   const [selectedMonth, setSelectedMonth] = useState("");
   const [customFromDate, setCustomFromDate] = useState("");
   const [customToDate, setCustomToDate] = useState("");
 
-  // Extract unique years and months from data
+  // Extract unique years and months from data (filtered by store)
   const availableYears = useMemo(() => {
     const years = new Set();
-    salesData.forEach((item) => {
-      const year = new Date(item.date).getFullYear();
-      years.add(year);
-    });
-    return Array.from(years).sort((a, b) => b - a); // Sort descending
-  }, []);
+    salesData
+      .filter((item) => item.storename === storeName)
+      .forEach((item) => {
+        const year = new Date(item.date).getFullYear();
+        years.add(year);
+      });
+    return Array.from(years).sort((a, b) => b - a);
+  }, [storeName]);
 
   const availableMonths = useMemo(() => {
     const months = new Set();
-    salesData.forEach((item) => {
-      const date = new Date(item.date);
-      const year = date.getFullYear();
-      const month = date.getMonth();
-      if (selectedYear && year === parseInt(selectedYear)) {
-        months.add(month);
-      } else if (!selectedYear) {
-        months.add(month);
-      }
-    });
+    salesData
+      .filter((item) => item.storename === storeName)
+      .forEach((item) => {
+        const date = new Date(item.date);
+        const year = date.getFullYear();
+        const month = date.getMonth();
+        if (selectedYear && year === parseInt(selectedYear)) {
+          months.add(month);
+        } else if (!selectedYear) {
+          months.add(month);
+        }
+      });
     return Array.from(months).sort((a, b) => a - b);
-  }, [selectedYear]);
+  }, [storeName, selectedYear]);
 
   // Set default year and month on mount
   useEffect(() => {
@@ -69,7 +73,7 @@ const DashBoardLayerOne = () => {
           startDate = new Date(year, 0, 1);
           endDate = new Date(year, 11, 31, 23, 59, 59);
         } else {
-          return salesData;
+          return salesData.filter((item) => item.storename === storeName);
         }
         break;
       case "monthly":
@@ -79,7 +83,7 @@ const DashBoardLayerOne = () => {
           startDate = new Date(year, month, 1);
           endDate = new Date(year, month + 1, 0, 23, 59, 59);
         } else {
-          return salesData;
+          return salesData.filter((item) => item.storename === storeName);
         }
         break;
       case "weekly":
@@ -113,22 +117,33 @@ const DashBoardLayerOne = () => {
           endDate = new Date(customToDate);
           endDate.setHours(23, 59, 59);
         } else {
-          return salesData;
+          return salesData.filter((item) => item.storename === storeName);
         }
         break;
       default:
-        return salesData;
+        return salesData.filter((item) => item.storename === storeName);
     }
 
     return salesData.filter((item) => {
       const itemDate = new Date(item.date);
-      return itemDate >= startDate && itemDate <= endDate;
+      return (
+        item.storename === storeName &&
+        itemDate >= startDate &&
+        itemDate <= endDate
+      );
     });
   };
 
   const filteredData = useMemo(
     () => getFilteredData(),
-    [filterType, selectedYear, selectedMonth, customFromDate, customToDate]
+    [
+      storeName,
+      filterType,
+      selectedYear,
+      selectedMonth,
+      customFromDate,
+      customToDate,
+    ]
   );
 
   // Calculate statistics
@@ -137,8 +152,6 @@ const DashBoardLayerOne = () => {
       (sum, item) => sum + item.sale,
       0
     );
-    const uniqueStores = new Set(filteredData.map((item) => item.storename))
-      .size;
 
     // Top categories
     const categorySales = {};
@@ -164,13 +177,12 @@ const DashBoardLayerOne = () => {
 
     return {
       totalQuantity,
-      totalStores: uniqueStores,
       topCategories,
       topProducts,
     };
   }, [filteredData]);
 
-  // Sales stats overview data (daily/weekly/monthly breakdown)
+  // Sales stats overview data
   const salesStatsData = useMemo(() => {
     const dateGroups = {};
 
@@ -217,21 +229,7 @@ const DashBoardLayerOne = () => {
       .map(([product, sales]) => ({ product, sales }));
   }, [filteredData]);
 
-  // Top categories by sales
-  const topCategoriesBySales = useMemo(() => {
-    const categorySales = {};
-    filteredData.forEach((item) => {
-      categorySales[item.category] =
-        (categorySales[item.category] || 0) + item.sale;
-    });
-
-    return Object.entries(categorySales)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 10)
-      .map(([category, sales]) => ({ category, sales }));
-  }, [filteredData]);
-
-  // Top stores by sales (for chart)
+  // Top stores by sales (for chart) - will show this store's performance over time
   const topStoresBySales = useMemo(() => {
     const storeSales = {};
     filteredData.forEach((item) => {
@@ -245,16 +243,12 @@ const DashBoardLayerOne = () => {
       .map(([storename, sales]) => ({ storename, sales }));
   }, [filteredData]);
 
-  // Calculate dynamic target based on actual sales to show 50-60% progress
+  // Calculate dynamic target
   const currentTarget = useMemo(() => {
     if (filteredData.length === 0 || stats.totalQuantity === 0) return 0;
 
-    // Calculate target as 1.67x to 2x of actual sales to show 50-60% progress
-    // Using 1.8x multiplier to show approximately 55% progress
     const multiplier = 1.8;
     const calculatedTarget = Math.ceil(stats.totalQuantity * multiplier);
-
-    // Round to nearest thousand for cleaner display, with minimum of 1000
     const roundedTarget = Math.max(
       1000,
       Math.ceil(calculatedTarget / 1000) * 1000
@@ -306,10 +300,14 @@ const DashBoardLayerOne = () => {
     return salesData
       .filter((item) => {
         const itemDate = new Date(item.date);
-        return itemDate >= startDate && itemDate <= endDate;
+        return (
+          item.storename === storeName &&
+          itemDate >= startDate &&
+          itemDate <= endDate
+        );
       })
       .reduce((sum, item) => sum + item.sale, 0);
-  }, [filterType, selectedYear, selectedMonth]);
+  }, [storeName, filterType, selectedYear, selectedMonth]);
 
   // Calculate percentage change
   const percentageChange = useMemo(() => {
@@ -319,7 +317,7 @@ const DashBoardLayerOne = () => {
     );
   }, [stats.totalQuantity, previousPeriodSales]);
 
-  // Monthly sales data for line chart (last 12 months)
+  // Monthly sales data for line chart
   const monthlySalesData = useMemo(() => {
     const monthlyData = {};
     const monthNames = [
@@ -346,7 +344,6 @@ const DashBoardLayerOne = () => {
       monthlyData[monthKey] += item.sale;
     });
 
-    // Get all months in order
     const sortedMonths = Object.keys(monthlyData).sort((a, b) => {
       return monthNames.indexOf(a) - monthNames.indexOf(b);
     });
@@ -355,39 +352,6 @@ const DashBoardLayerOne = () => {
       months: sortedMonths,
       sales: sortedMonths.map((month) => monthlyData[month] || 0),
     };
-  }, [filteredData]);
-
-  // Top stores performance
-  const topStores = useMemo(() => {
-    const storeSales = {};
-    filteredData.forEach((item) => {
-      if (!storeSales[item.storename]) {
-        storeSales[item.storename] = {
-          totalSales: 0,
-          categories: {},
-          products: {},
-        };
-      }
-      storeSales[item.storename].totalSales += item.sale;
-      storeSales[item.storename].categories[item.category] =
-        (storeSales[item.storename].categories[item.category] || 0) + item.sale;
-      storeSales[item.storename].products[item.product] =
-        (storeSales[item.storename].products[item.product] || 0) + item.sale;
-    });
-
-    return Object.entries(storeSales)
-      .map(([storename, data]) => ({
-        storename,
-        totalSales: data.totalSales,
-        topCategory:
-          Object.entries(data.categories).sort((a, b) => b[1] - a[1])[0]?.[0] ||
-          "N/A",
-        topProduct:
-          Object.entries(data.products).sort((a, b) => b[1] - a[1])[0]?.[0] ||
-          "N/A",
-      }))
-      .sort((a, b) => b.totalSales - a.totalSales)
-      .slice(0, 10);
   }, [filteredData]);
 
   // Chart options
@@ -520,7 +484,7 @@ const DashBoardLayerOne = () => {
     },
   ];
 
-  // Top Stores Horizontal Bar Chart
+  // Top Stores Horizontal Bar Chart (showing this store's performance)
   const topStoresBarChartOptions = {
     chart: {
       type: "bar",
@@ -617,6 +581,32 @@ const DashBoardLayerOne = () => {
 
   return (
     <>
+      {/* Store Info Header */}
+      <div className="card mb-4">
+        <div className="card-body p-24">
+          <div className="d-flex align-items-center justify-content-between">
+            <div className="d-flex align-items-center gap-3">
+              <div className="w-60-px h-60-px bg-primary rounded-circle d-flex justify-content-center align-items-center">
+                <Icon
+                  icon="solar:shop-2-bold"
+                  className="text-white text-2xl"
+                />
+              </div>
+              <div>
+                <h4 className="fw-bold mb-1">{storeName}</h4>
+                <p className="text-primary-light mb-0">Store Dashboard</p>
+              </div>
+            </div>
+            <Link href="/store-comparison">
+              <button className="btn btn-outline-primary btn-sm d-flex align-items-center gap-2">
+                <Icon icon="solar:graph-up-bold" />
+                Compare with Other Stores
+              </button>
+            </Link>
+          </div>
+        </div>
+      </div>
+
       {/* Filter Section */}
       <div className="card mb-4">
         <div className="card-body p-24">
@@ -670,7 +660,7 @@ const DashBoardLayerOne = () => {
                     value={selectedYear}
                     onChange={(e) => {
                       setSelectedYear(e.target.value);
-                      setSelectedMonth(""); // Reset month when year changes
+                      setSelectedMonth("");
                     }}
                   >
                     {availableYears.map((year) => (
@@ -734,25 +724,11 @@ const DashBoardLayerOne = () => {
                 </div>
               </>
             )}
-            <div className="col-md-2">
-              <label className="form-label fw-semibold d-block">&nbsp;</label>
-              <button
-                className="btn btn-primary w-100"
-                onClick={() => {
-                  // Force re-render by updating state
-                  setFilterType(filterType);
-                }}
-              >
-                <Icon icon="solar:filter-bold" className="me-2" />
-                Apply Filter
-              </button>
-            </div>
           </div>
         </div>
       </div>
 
       {/* Top Bar Statistics */}
-
       <br />
       <div className="row row-cols-1 row-cols-sm-2 row-cols-lg-4 gy-4">
         <div className="col">
@@ -770,27 +746,6 @@ const DashBoardLayerOne = () => {
                 <div className="w-50-px h-50-px bg-cyan rounded-circle d-flex justify-content-center align-items-center">
                   <Icon
                     icon="solar:cart-large-4-bold"
-                    className="text-white text-2xl mb-0"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="col">
-          <div className="card shadow-none border bg-gradient-start-2 h-100">
-            <div className="card-body p-20">
-              <div className="d-flex flex-wrap align-items-center justify-content-between gap-3">
-                <div>
-                  <p className="fw-medium text-primary-light mb-1">
-                    Total Stores
-                  </p>
-                  <h6 className="mb-0">{stats.totalStores}</h6>
-                </div>
-                <div className="w-50-px h-50-px bg-purple rounded-circle d-flex justify-content-center align-items-center">
-                  <Icon
-                    icon="solar:shop-2-bold"
                     className="text-white text-2xl mb-0"
                   />
                 </div>
@@ -850,6 +805,27 @@ const DashBoardLayerOne = () => {
             </div>
           </div>
         </div>
+
+        <div className="col">
+          <div className="card shadow-none border bg-gradient-start-2 h-100">
+            <div className="card-body p-20">
+              <div className="d-flex flex-wrap align-items-center justify-content-between gap-3">
+                <div>
+                  <p className="fw-medium text-primary-light mb-1">
+                    Store Name
+                  </p>
+                  <h6 className="mb-0">{storeName}</h6>
+                </div>
+                <div className="w-50-px h-50-px bg-purple rounded-circle d-flex justify-content-center align-items-center">
+                  <Icon
+                    icon="solar:shop-2-bold"
+                    className="text-white text-2xl mb-0"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
       <br />
 
@@ -890,8 +866,6 @@ const DashBoardLayerOne = () => {
         </div>
       </div>
 
-      <br />
-
       {/* Top Products by Sales and Top Stores by Sales */}
       <div className="row gy-4 mb-4">
         <div className="col-xxl-8 col-xl-12">
@@ -915,7 +889,7 @@ const DashBoardLayerOne = () => {
         <div className="col-xxl-4 col-xl-12">
           <div className="card h-100">
             <div className="card-header border-bottom bg-base py-16 px-24">
-              <h6 className="text-lg fw-semibold mb-0">Top Stores by Sales</h6>
+              <h6 className="text-lg fw-semibold mb-0">Store Performance</h6>
             </div>
             <div className="card-body p-24">
               <ReactApexChart
@@ -928,8 +902,6 @@ const DashBoardLayerOne = () => {
           </div>
         </div>
       </div>
-
-      <br />
 
       {/* Targets Analysis */}
       <div className="row gy-4 mb-4">
@@ -1163,7 +1135,7 @@ const DashBoardLayerOne = () => {
                   },
                   {
                     name: "Sales Statistics",
-                    data: monthlySalesData.sales.map((val) => val * 0.7), // Secondary line for comparison
+                    data: monthlySalesData.sales.map((val) => val * 0.7),
                   },
                 ]}
                 type="line"
@@ -1173,78 +1145,8 @@ const DashBoardLayerOne = () => {
           </div>
         </div>
       </div>
-
-      <br />
-
-      {/* Top Stores Performance */}
-      <div className="row gy-4">
-        <div className="col-12">
-          <div className="card">
-            <div className="card-header border-bottom bg-base py-16 px-24">
-              <div className="d-flex align-items-center justify-content-between">
-                <h6 className="text-lg fw-semibold mb-0">
-                  Top Stores Performance
-                </h6>
-                <Link href="/store-comparison">
-                  <button className="btn btn-outline-primary btn-sm d-flex align-items-center gap-2">
-                    <Icon icon="solar:graph-up-bold" />
-                    Compare Stores
-                  </button>
-                </Link>
-              </div>
-            </div>
-            <div className="card-body p-24">
-              <div className="table-responsive">
-                <table className="table table-hover">
-                  <thead>
-                    <tr>
-                      <th>Rank</th>
-                      <th>Store Name</th>
-                      <th className="text-end">Total Sales</th>
-                      <th>Top Category</th>
-                      <th>Top Product</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {topStores.map((store, index) => (
-                      <tr key={store.storename}>
-                        <td>
-                          <span className="badge bg-primary">{index + 1}</span>
-                        </td>
-                        <td className="fw-semibold">
-                          <Link
-                            href={`/store/${encodeURIComponent(
-                              store.storename
-                            )}`}
-                            className="text-primary text-decoration-none"
-                          >
-                            {store.storename}
-                          </Link>
-                        </td>
-                        <td className="text-end fw-bold">
-                          {store.totalSales.toLocaleString()}
-                        </td>
-                        <td>
-                          <span className="badge bg-info">
-                            {store.topCategory}
-                          </span>
-                        </td>
-                        <td>
-                          <span className="badge bg-success">
-                            {store.topProduct}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
     </>
   );
 };
 
-export default DashBoardLayerOne;
+export default StoreDashboard;
