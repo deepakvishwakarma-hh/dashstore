@@ -608,6 +608,7 @@ export interface ApiTargetTarget extends Struct.CollectionTypeSchema {
     period_type: Schema.Attribute.Enumeration<['yearly', 'monthly']>;
     product: Schema.Attribute.Relation<'oneToOne', 'api::product.product'>;
     publishedAt: Schema.Attribute.DateTime;
+    store: Schema.Attribute.Relation<'oneToOne', 'api::store.store'>;
     target_quantity: Schema.Attribute.BigInteger;
     target_revenue_achieved: Schema.Attribute.BigInteger;
     type: Schema.Attribute.Enumeration<['store', 'overall']>;

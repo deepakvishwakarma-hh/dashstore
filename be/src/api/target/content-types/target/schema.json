@@ -18,6 +18,11 @@
         "overall"
       ]
     },
+    "store": {
+      "type": "relation",
+      "relation": "oneToOne",
+      "target": "api::store.store"
+    },
     "period_type": {
       "type": "enumeration",
       "enum": [
