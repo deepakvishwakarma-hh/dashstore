@@ -583,6 +583,41 @@ export interface ApiStoreStore extends Struct.CollectionTypeSchema {
   };
 }
 
+export interface ApiTargetTarget extends Struct.CollectionTypeSchema {
+  collectionName: 'targets';
+  info: {
+    displayName: 'Target';
+    pluralName: 'targets';
+    singularName: 'target';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    category: Schema.Attribute.Relation<'oneToOne', 'api::category.category'>;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::target.target'
+    > &
+      Schema.Attribute.Private;
+    month: Schema.Attribute.String;
+    period_type: Schema.Attribute.Enumeration<['yearly', 'monthly']>;
+    product: Schema.Attribute.Relation<'oneToOne', 'api::product.product'>;
+    publishedAt: Schema.Attribute.DateTime;
+    target_quantity: Schema.Attribute.BigInteger;
+    target_revenue_achieved: Schema.Attribute.BigInteger;
+    type: Schema.Attribute.Enumeration<['store', 'overall']>;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    year: Schema.Attribute.String;
+  };
+}
+
 export interface PluginContentReleasesRelease
   extends Struct.CollectionTypeSchema {
   collectionName: 'strapi_releases';
@@ -1098,6 +1133,7 @@ declare module '@strapi/strapi' {
       'api::sale.sale': ApiSaleSale;
       'api::stack.stack': ApiStackStack;
       'api::store.store': ApiStoreStore;
+      'api::target.target': ApiTargetTarget;
       'plugin::content-releases.release': PluginContentReleasesRelease;
       'plugin::content-releases.release-action': PluginContentReleasesReleaseAction;
       'plugin::i18n.locale': PluginI18NLocale;
