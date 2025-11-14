@@ -170,24 +170,137 @@ const DashBoardLayerOne = () => {
     };
   }, [filteredData]);
 
-  // Sales stats overview data (daily/weekly/monthly breakdown)
+  // Sales stats overview data - multiple series for yearly/monthly filters
   const salesStatsData = useMemo(() => {
-    const dateGroups = {};
+    const monthNames = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ];
 
-    filteredData.forEach((item) => {
-      const date = item.date;
-      if (!dateGroups[date]) {
-        dateGroups[date] = 0;
-      }
-      dateGroups[date] += item.sale;
-    });
+    // If yearly filter is selected, show all years as separate lines (monthly breakdown)
+    if (filterType === "yearly") {
+      const allYears = Array.from(availableYears).sort((a, b) => a - b);
+      const series = [];
+      const categories = monthNames;
 
-    const sortedDates = Object.keys(dateGroups).sort();
-    return {
-      dates: sortedDates,
-      values: sortedDates.map((date) => dateGroups[date]),
-    };
-  }, [filteredData]);
+      allYears.forEach((year) => {
+        const yearData = new Array(12).fill(0); // Initialize with 12 months
+
+        salesData.forEach((item) => {
+          const itemDate = new Date(item.date);
+          const itemYear = itemDate.getFullYear();
+          const itemMonth = itemDate.getMonth();
+
+          if (itemYear === year) {
+            yearData[itemMonth] += item.sale;
+          }
+        });
+
+        series.push({
+          name: year.toString(),
+          data: yearData,
+        });
+      });
+
+      return {
+        dates: categories,
+        values: [], // Not used when we have multiple series
+        series: series,
+        isMultipleSeries: true,
+      };
+    }
+    // If monthly filter is selected, show all months as separate lines (weekly breakdown)
+    else if (filterType === "monthly" && selectedYear) {
+      const year = parseInt(selectedYear);
+      // Get months that have data in the selected year
+      const monthsInYear = new Set();
+      salesData.forEach((item) => {
+        const itemDate = new Date(item.date);
+        const itemYear = itemDate.getFullYear();
+        if (itemYear === year) {
+          monthsInYear.add(itemDate.getMonth());
+        }
+      });
+      const allMonths = Array.from(monthsInYear).sort((a, b) => a - b);
+      const series = [];
+
+      // Helper function to get week number in month (1-5)
+      const getWeekInMonth = (date) => {
+        const firstDay = new Date(date.getFullYear(), date.getMonth(), 1);
+        const firstDayOfWeek = firstDay.getDay();
+        const dayOfMonth = date.getDate();
+        const weekNumber = Math.ceil((dayOfMonth + firstDayOfWeek) / 7);
+        return weekNumber;
+      };
+
+      // Get all unique weeks across all months (Week 1, Week 2, Week 3, Week 4, Week 5)
+      const allWeeks = [1, 2, 3, 4, 5];
+      const categories = allWeeks.map((week) => `Week ${week}`);
+
+      allMonths.forEach((month) => {
+        const weekData = new Array(5).fill(0); // Initialize with 5 weeks
+
+        salesData.forEach((item) => {
+          const itemDate = new Date(item.date);
+          const itemYear = itemDate.getFullYear();
+          const itemMonth = itemDate.getMonth();
+
+          if (itemYear === year && itemMonth === month) {
+            const weekInMonth = getWeekInMonth(itemDate);
+            if (weekInMonth >= 1 && weekInMonth <= 5) {
+              weekData[weekInMonth - 1] += item.sale;
+            }
+          }
+        });
+
+        series.push({
+          name: monthNames[month],
+          data: weekData,
+        });
+      });
+
+      return {
+        dates: categories,
+        values: [], // Not used when we have multiple series
+        series: series,
+        isMultipleSeries: true,
+      };
+    }
+    // Default: single series grouped by date
+    else {
+      const dateGroups = {};
+      filteredData.forEach((item) => {
+        const date = item.date;
+        if (!dateGroups[date]) {
+          dateGroups[date] = 0;
+        }
+        dateGroups[date] += item.sale;
+      });
+
+      const sortedDates = Object.keys(dateGroups).sort();
+      return {
+        dates: sortedDates,
+        values: sortedDates.map((date) => dateGroups[date]),
+        series: [
+          {
+            name: "Sales",
+            data: sortedDates.map((date) => dateGroups[date]),
+          },
+        ],
+        isMultipleSeries: false,
+      };
+    }
+  }, [filteredData, filterType, availableYears, availableMonths, selectedYear]);
 
   // Category distribution data
   const categoryDistribution = useMemo(() => {
@@ -391,51 +504,148 @@ const DashBoardLayerOne = () => {
   }, [filteredData]);
 
   // Chart options
-  const salesStatsChartOptions = {
-    chart: {
-      type: "area",
-      height: 300,
-      toolbar: { show: false },
-      zoom: { enabled: false },
-    },
-    dataLabels: { enabled: false },
-    stroke: { curve: "smooth", width: 3, colors: ["#487FFF"] },
-    fill: {
-      type: "gradient",
-      gradient: {
-        shadeIntensity: 1,
-        inverseColors: false,
-        opacityFrom: 0.3,
-        opacityTo: 0.1,
-        stops: [0, 90, 100],
+  const salesStatsChartOptions = useMemo(
+    () => ({
+      chart: {
+        type:
+          filterType === "yearly" || filterType === "monthly" ? "line" : "area",
+        height: 300,
+        toolbar: { show: false },
+        zoom: { enabled: false },
       },
-    },
-    xaxis: { categories: salesStatsData.dates },
-    yaxis: { title: { text: "Sales" } },
-    colors: ["#487FFF"],
-    grid: {
-      borderColor: "#e7e7e7",
-      strokeDashArray: 3,
+      dataLabels: { enabled: false },
+      markers: {
+        size: filterType === "yearly" || filterType === "monthly" ? 4 : 0,
+        hover: {
+          size: 6,
+        },
+      },
+      stroke: {
+        curve: "smooth",
+        width: 3,
+        colors:
+          filterType === "yearly" || filterType === "monthly"
+            ? undefined
+            : ["#487FFF"],
+      },
+      fill:
+        filterType === "yearly" || filterType === "monthly"
+          ? {
+              type: "solid",
+              opacity: 0.05,
+            }
+          : {
+              type: "gradient",
+              gradient: {
+                shadeIntensity: 1,
+                inverseColors: false,
+                opacityFrom: 0.3,
+                opacityTo: 0.1,
+                stops: [0, 90, 100],
+              },
+            },
       xaxis: {
-        lines: {
-          show: true,
+        categories: salesStatsData.dates,
+        title: {
+          text:
+            filterType === "yearly"
+              ? "Month"
+              : filterType === "monthly"
+              ? "Week"
+              : "Date",
         },
       },
-      yaxis: {
-        lines: {
-          show: true,
+      yaxis: { title: { text: "Sales" } },
+      colors:
+        filterType === "yearly" || filterType === "monthly"
+          ? [
+              "#487FFF",
+              "#10B981",
+              "#F59E0B",
+              "#EF4444",
+              "#8B5CF6",
+              "#EC4899",
+              "#06B6D4",
+              "#84CC16",
+              "#F97316",
+              "#6366F1",
+              "#14B8A6",
+              "#A855F7",
+            ]
+          : ["#487FFF"],
+      grid: {
+        borderColor: "#e7e7e7",
+        strokeDashArray: 3,
+        xaxis: {
+          lines: {
+            show: true,
+          },
+        },
+        yaxis: {
+          lines: {
+            show: true,
+          },
         },
       },
-    },
-    tooltip: { theme: "light" },
-  };
+      tooltip: { theme: "light" },
+      legend: {
+        show: filterType === "yearly" || filterType === "monthly",
+        position: "top",
+        horizontalAlign: "right",
+        floating: false,
+        fontSize: "12px",
+        fontFamily: "Helvetica, Arial",
+        fontWeight: 400,
+        formatter: undefined,
+        inverseOrder: false,
+        width: undefined,
+        height: undefined,
+        tooltipHoverFormatter: undefined,
+        customLegendItems: [],
+        offsetX: 0,
+        offsetY: 0,
+        labels: {
+          colors: undefined,
+          useSeriesColors: true,
+        },
+        markers: {
+          width: 12,
+          height: 12,
+          strokeWidth: 0,
+          strokeColor: "#fff",
+          fillColors: undefined,
+          radius: 12,
+          customHTML: undefined,
+          onClick: undefined,
+          offsetX: 0,
+          offsetY: 0,
+        },
+        itemMargin: {
+          horizontal: 5,
+          vertical: 0,
+        },
+        onItemClick: {
+          toggleDataSeries: true,
+        },
+        onItemHover: {
+          highlightDataSeries: true,
+        },
+      },
+    }),
+    [salesStatsData.dates, filterType]
+  );
 
-  const salesStatsChartSeries = [
-    {
-      name: "Sales",
-      data: salesStatsData.values,
-    },
-  ];
+  const salesStatsChartSeries = useMemo(() => {
+    if (salesStatsData.series && salesStatsData.series.length > 0) {
+      return salesStatsData.series;
+    }
+    return [
+      {
+        name: "Sales",
+        data: salesStatsData.values || [],
+      },
+    ];
+  }, [salesStatsData]);
 
   const categoryPieChartOptions = {
     chart: { type: "donut", height: 300 },
@@ -859,12 +1069,22 @@ const DashBoardLayerOne = () => {
           <div className="card h-100">
             <div className="card-header border-bottom bg-base py-16 px-24">
               <h6 className="text-lg fw-semibold mb-0">Sales Stats Overview</h6>
+              {filterType === "yearly" && (
+                <p className="text-sm text-primary-light mb-0 mt-1">
+                  Showing all years with monthly breakdown
+                </p>
+              )}
+              {filterType === "monthly" && selectedYear && (
+                <p className="text-sm text-primary-light mb-0 mt-1">
+                  Showing all months with weekly breakdown for {selectedYear}
+                </p>
+              )}
             </div>
             <div className="card-body p-24">
               <ReactApexChart
                 options={salesStatsChartOptions}
                 series={salesStatsChartSeries}
-                type="area"
+                type={salesStatsChartOptions.chart.type}
                 height={300}
               />
             </div>
