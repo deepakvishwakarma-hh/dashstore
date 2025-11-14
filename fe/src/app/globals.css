@@ -17,3 +17,44 @@
 @import url("~/public/assets/css/lib/animate.min.css");
 @import url("~/public/assets/css/style.css");
 @import url("~/public/assets/css/extra.css");
+
+/* React Select Styles */
+.react-select-container {
+  position: relative;
+}
+
+.react-select__control {
+  border: 1px solid #e5e7eb !important;
+  box-shadow: none !important;
+}
+
+.react-select__control:hover {
+  border-color: #6366f1 !important;
+}
+
+.react-select__control--is-focused {
+  border-color: #6366f1 !important;
+  box-shadow: 0 0 0 0.2rem rgba(99, 102, 241, 0.25) !important;
+}
+
+.react-select__menu {
+  z-index: 1000;
+}
+
+.react-select__multi-value {
+  background-color: #eef2ff !important;
+  border-radius: 4px !important;
+}
+
+.react-select__multi-value__label {
+  color: #6366f1 !important;
+}
+
+.react-select__multi-value__remove {
+  color: #6366f1 !important;
+}
+
+.react-select__multi-value__remove:hover {
+  background-color: #6366f1 !important;
+  color: white !important;
+}

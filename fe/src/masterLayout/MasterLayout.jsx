@@ -280,6 +280,19 @@ const MasterLayout = ({ children }) => {
             </li>
             <li>
               <Link
+                href="/products"
+                className={
+                  pathname === "/products" || pathname?.startsWith("/products/")
+                    ? "active-page"
+                    : ""
+                }
+              >
+                <Icon icon="lucide:package" className="menu-icon" />
+                <span>Products</span>
+              </Link>
+            </li>
+            <li>
+              <Link
                 href="/email"
                 className={pathname === "/email" ? "active-page" : ""}
               >

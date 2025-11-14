@@ -1,4 +1,6 @@
 import PluginInit from "@/helper/PluginInit";
+import QueryProvider from "@/components/QueryProvider";
+import { Toaster } from "react-hot-toast";
 import "./font.css";
 import "./globals.css";
 
@@ -10,9 +12,14 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang='en'>
+    <html lang="en">
       <PluginInit />
-      <body suppressHydrationWarning={true}>{children}</body>
+      <body suppressHydrationWarning={true}>
+        <QueryProvider>
+          {children}
+          <Toaster position="top-right" />
+        </QueryProvider>
+      </body>
     </html>
   );
 }
