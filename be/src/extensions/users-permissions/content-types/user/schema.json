@@ -74,13 +74,12 @@
     },
     "type": {
       "type": "enumeration",
-      "enum": [
-        "admin",
-        "manager",
-        "employee"
-      ]
+      "enum": ["admin", "manager", "employee"]
     },
     "mobile": {
+      "type": "string"
+    },
+    "name": {
       "type": "string"
     }
   }

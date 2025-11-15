@@ -1098,6 +1098,7 @@ export interface PluginUsersPermissionsUser
     > &
       Schema.Attribute.Private;
     mobile: Schema.Attribute.String;
+    name: Schema.Attribute.String;
     password: Schema.Attribute.Password &
       Schema.Attribute.Private &
       Schema.Attribute.SetMinMaxLength<{
