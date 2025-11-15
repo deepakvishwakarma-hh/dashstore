@@ -1093,6 +1093,7 @@ export interface PluginUsersPermissionsUser
       'plugin::users-permissions.user'
     > &
       Schema.Attribute.Private;
+    mobile: Schema.Attribute.String;
     password: Schema.Attribute.Password &
       Schema.Attribute.Private &
       Schema.Attribute.SetMinMaxLength<{
@@ -1106,6 +1107,7 @@ export interface PluginUsersPermissionsUser
       'plugin::users-permissions.role'
     >;
     store: Schema.Attribute.Relation<'manyToOne', 'api::store.store'>;
+    type: Schema.Attribute.Enumeration<['admin', 'manager', 'employee']>;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;

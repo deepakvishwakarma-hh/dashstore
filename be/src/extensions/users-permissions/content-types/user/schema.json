@@ -71,6 +71,17 @@
       "relation": "manyToOne",
       "target": "api::store.store",
       "inversedBy": "administrators"
+    },
+    "type": {
+      "type": "enumeration",
+      "enum": [
+        "admin",
+        "manager",
+        "employee"
+      ]
+    },
+    "mobile": {
+      "type": "string"
     }
   }
 }
