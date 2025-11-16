@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import ThemeToggleButton from "../helper/ThemeToggleButton";
 import Link from "next/link";
 import salesData from "@/data/sales.json";
+import UserDropdown from "@/components/UserDropdown";
 
 const MasterLayout = ({ children }) => {
   let pathname = usePathname();
@@ -332,7 +333,7 @@ const MasterLayout = ({ children }) => {
                 <span>Employees</span>
               </Link>
             </li>
-            <li>
+            {/* <li>
               <Link
                 href="/email"
                 className={pathname === "/email" ? "active-page" : ""}
@@ -340,8 +341,8 @@ const MasterLayout = ({ children }) => {
                 <Icon icon="mage:email" className="menu-icon" />
                 <span>Email</span>
               </Link>
-            </li>
-            <li>
+            </li> */}
+            {/* <li>
               <Link
                 href="/chat-message"
                 className={pathname === "/chat-message" ? "active-page" : ""}
@@ -349,8 +350,8 @@ const MasterLayout = ({ children }) => {
                 <Icon icon="bi:chat-dots" className="menu-icon" />
                 <span>Chat</span>
               </Link>
-            </li>
-            <li>
+            </li> */}
+            {/* <li>
               <Link
                 href="/calendar-main"
                 className={pathname === "/calendar-main" ? "active-page" : ""}
@@ -358,8 +359,8 @@ const MasterLayout = ({ children }) => {
                 <Icon icon="solar:calendar-outline" className="menu-icon" />
                 <span>Calendar</span>
               </Link>
-            </li>
-            <li>
+            </li> */}
+            {/* <li>
               <Link
                 href="/kanban"
                 className={pathname === "/kanban" ? "active-page" : ""}
@@ -370,10 +371,10 @@ const MasterLayout = ({ children }) => {
                 />
                 <span>Kanban</span>
               </Link>
-            </li>
+            </li> */}
 
             {/* Invoice Dropdown */}
-            <li className="dropdown">
+            {/* <li className="dropdown">
               <Link href="#">
                 <Icon icon="hugeicons:invoice-03" className="menu-icon" />
                 <span>Invoice</span>
@@ -422,10 +423,10 @@ const MasterLayout = ({ children }) => {
                   </Link>
                 </li>
               </ul>
-            </li>
+            </li> */}
 
             {/* Ai Application Dropdown */}
-            <li className="dropdown">
+            {/* <li className="dropdown">
               <Link href="#">
                 <i className="ri-robot-2-line mr-10" />
 
@@ -488,10 +489,10 @@ const MasterLayout = ({ children }) => {
                   </Link>
                 </li>
               </ul>
-            </li>
+            </li> */}
 
             {/* Crypto Currency Dropdown */}
-            <li className="dropdown">
+            {/* <li className="dropdown">
               <Link href="#">
                 <i className="ri-robot-2-line mr-10" />
                 <span>Crypto Currency</span>
@@ -536,7 +537,7 @@ const MasterLayout = ({ children }) => {
                   </Link>
                 </li>
               </ul>
-            </li>
+            </li> */}
 
             <li className="sidebar-menu-group-title">UI Elements</li>
 
@@ -1300,7 +1301,7 @@ const MasterLayout = ({ children }) => {
               <div className="d-flex flex-wrap align-items-center gap-3">
                 {/* ThemeToggleButton */}
                 <ThemeToggleButton />
-                <div className="dropdown d-none d-sm-inline-block">
+                {/* <div className="dropdown d-none d-sm-inline-block">
                   <button
                     className="has-indicator w-40-px h-40-px bg-neutral-200 rounded-circle d-flex justify-content-center align-items-center"
                     type="button"
@@ -1507,9 +1508,9 @@ const MasterLayout = ({ children }) => {
                       </div>
                     </div>
                   </div>
-                </div>
+                </div> */}
                 {/* Language dropdown end */}
-                <div className="dropdown">
+                {/* <div className="dropdown">
                   <button
                     className="has-indicator w-40-px h-40-px bg-neutral-200 rounded-circle d-flex justify-content-center align-items-center"
                     type="button"
@@ -1692,9 +1693,9 @@ const MasterLayout = ({ children }) => {
                       </Link>
                     </div>
                   </div>
-                </div>
+                </div> */}
                 {/* Message dropdown end */}
-                <div className="dropdown">
+                {/* <div className="dropdown">
                   <button
                     className="has-indicator w-40-px h-40-px bg-neutral-200 rounded-circle d-flex justify-content-center align-items-center"
                     type="button"
@@ -1842,86 +1843,10 @@ const MasterLayout = ({ children }) => {
                       </Link>
                     </div>
                   </div>
-                </div>
+                </div> */}
                 {/* Notification dropdown end */}
-                <div className="dropdown">
-                  <button
-                    className="d-flex justify-content-center align-items-center rounded-circle"
-                    type="button"
-                    data-bs-toggle="dropdown"
-                  >
-                    <img
-                      src="assets/images/user.png"
-                      alt="image_user"
-                      className="w-40-px h-40-px object-fit-cover rounded-circle"
-                    />
-                  </button>
-                  <div className="dropdown-menu to-top dropdown-menu-sm">
-                    <div className="py-12 px-16 radius-8 bg-primary-50 mb-16 d-flex align-items-center justify-content-between gap-2">
-                      <div>
-                        <h6 className="text-lg text-primary-light fw-semibold mb-2">
-                          Shaidul Islam
-                        </h6>
-                        <span className="text-secondary-light fw-medium text-sm">
-                          Admin
-                        </span>
-                      </div>
-                      <button type="button" className="hover-text-danger">
-                        <Icon
-                          icon="radix-icons:cross-1"
-                          className="icon text-xl"
-                        />
-                      </button>
-                    </div>
-                    <ul className="to-top-list">
-                      <li>
-                        <Link
-                          className="dropdown-item text-black px-0 py-8 hover-bg-transparent hover-text-primary d-flex align-items-center gap-3"
-                          href="/view-profile"
-                        >
-                          <Icon
-                            icon="solar:user-linear"
-                            className="icon text-xl"
-                          />{" "}
-                          My Profile
-                        </Link>
-                      </li>
-                      <li>
-                        <Link
-                          className="dropdown-item text-black px-0 py-8 hover-bg-transparent hover-text-primary d-flex align-items-center gap-3"
-                          href="/email"
-                        >
-                          <Icon
-                            icon="tabler:message-check"
-                            className="icon text-xl"
-                          />{" "}
-                          Inbox
-                        </Link>
-                      </li>
-                      <li>
-                        <Link
-                          className="dropdown-item text-black px-0 py-8 hover-bg-transparent hover-text-primary d-flex align-items-center gap-3"
-                          href="/company"
-                        >
-                          <Icon
-                            icon="icon-park-outline:setting-two"
-                            className="icon text-xl"
-                          />
-                          Setting
-                        </Link>
-                      </li>
-                      <li>
-                        <Link
-                          className="dropdown-item text-black px-0 py-8 hover-bg-transparent hover-text-danger d-flex align-items-center gap-3"
-                          href="#"
-                        >
-                          <Icon icon="lucide:power" className="icon text-xl" />{" "}
-                          Log Out
-                        </Link>
-                      </li>
-                    </ul>
-                  </div>
-                </div>
+                {/* Profile dropdown */}
+                <UserDropdown />
                 {/* Profile dropdown end */}
               </div>
             </div>

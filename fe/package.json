@@ -35,6 +35,7 @@
     "datatables.net-dt": "^2.1.8",
     "flatpickr": "^4.6.13",
     "highlight.js": "^11.10.0",
+    "iron-session": "^8.0.4",
     "isotope-layout": "^3.0.6",
     "jquery": "^3.7.1",
     "jsvectormap": "^1.6.0",

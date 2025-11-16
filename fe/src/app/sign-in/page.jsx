@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import SignInLayer from "@/components/SignInLayer";
 
 export const metadata = {
@@ -10,7 +11,9 @@ const Page = () => {
   return (
     <>
       {/* SignInLayer */}
-      <SignInLayer />
+      <Suspense fallback={<div>Loading...</div>}>
+        <SignInLayer />
+      </Suspense>
     </>
   );
 };
