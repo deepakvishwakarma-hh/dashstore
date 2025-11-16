@@ -62,14 +62,27 @@ export async function POST(request) {
           filters: {
             $or: [{ email: email }, { mobile: mobile }],
           },
+          populate: "store",
         },
       });
 
-      if (!userResponse.data || userResponse.data.length === 0) {
+      // Handle Strapi v4 response structure
+      const users = userResponse.data?.data || userResponse.data || [];
+
+      if (!users || users.length === 0) {
         return NextResponse.json({ error: "User not found" }, { status: 404 });
       }
 
-      const user = userResponse.data[0];
+      const user = users[0];
+
+      // Extract store data (handle both single store and array of stores)
+      // Also handle Strapi v4 structure where store might be in data property
+      const storeData = user.store?.data || user.store;
+      const stores = storeData
+        ? Array.isArray(storeData)
+          ? storeData
+          : [storeData]
+        : [];
 
       // Generate JWT token for Strapi
       // Since we're using OTP, we need to authenticate with Strapi
@@ -87,7 +100,7 @@ export async function POST(request) {
       otpStore.delete(mobile);
 
       // Save session
-      await saveSession({
+      const sessionData = {
         user: {
           id: user.id,
           username: user.username,
@@ -95,10 +108,18 @@ export async function POST(request) {
           mobile: user.mobile,
           name: user.name,
           type: user.type,
+          stores: stores.map((store) => ({
+            id: store.id,
+            name: store.name || store.storename || store.title,
+            // Add other store fields as needed
+            ...store,
+          })),
         },
         jwt: null, // OTP login might not have JWT - you'll need custom Strapi endpoint
         isLoggedIn: true,
-      });
+      };
+
+      await saveSession(sessionData);
 
       return NextResponse.json({
         success: true,
@@ -109,6 +130,7 @@ export async function POST(request) {
           mobile: user.mobile,
           name: user.name,
           type: user.type,
+          stores: sessionData.user.stores,
         },
       });
     } catch (error) {

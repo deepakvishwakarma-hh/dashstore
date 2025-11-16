@@ -20,6 +20,16 @@ export const defaultSession = {
   user: null,
   jwt: null,
   isLoggedIn: false,
+  // user structure:
+  // {
+  //   id: number,
+  //   username: string,
+  //   email: string,
+  //   mobile: string,
+  //   name: string,
+  //   type: string,
+  //   stores: array of store objects
+  // }
 };
 
 // Get session (server-side)

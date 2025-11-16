@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import axios from "axios";
 import { saveSession } from "@/lib/session";
+import strapiApi from "@/lib/strapi";
 
 const STRAPI_URL =
   process.env.NEXT_PUBLIC_STRAPI_URL || "http://localhost:1337/api";
@@ -36,6 +37,33 @@ export async function POST(request) {
 
         const { user, jwt } = response.data;
 
+        // Fetch user with populated store data
+        let userWithStores = user;
+        try {
+          // const userResponse = await axios.get(
+          //   `${STRAPI_URL}/users/${user.id}?populate=store`,
+          //   {
+          //     headers: {
+          //       Authorization: `Bearer ${jwt}`,
+          //     },
+          //   }
+          // );
+
+          const userResponse = await strapiApi.get(
+            `/users/${user.id}?populate=stores`
+          );
+          // Handle Strapi v4 response structure (data.data or data)
+          userWithStores = userResponse.data || user;
+        } catch (error) {
+          console.error("Error fetching user with stores:", error);
+          // Continue with basic user data if store fetch fails
+        }
+
+        // Extract store data (handle both single store and array of stores)
+        // Also handle Strapi v4 structure where store might be in data property
+        const storeData = userWithStores.stores;
+        const stores = storeData || [];
+
         // Save session
         const sessionData = {
           user: {
@@ -45,6 +73,12 @@ export async function POST(request) {
             mobile: user.mobile,
             name: user.name,
             type: user.type,
+            stores: stores.map((store) => ({
+              id: store.id,
+              name: store.name,
+              slug: store.slug,
+              address: store.address,
+            })),
           },
           jwt: jwt,
           isLoggedIn: true,
@@ -72,6 +106,7 @@ export async function POST(request) {
             mobile: user.mobile,
             name: user.name,
             type: user.type,
+            stores: sessionData.user.stores,
           },
         });
       } catch (error) {

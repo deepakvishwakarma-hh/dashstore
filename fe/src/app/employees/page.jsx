@@ -14,7 +14,6 @@ const Page = () => {
       <MasterLayout>
         {/* Breadcrumb */}
         <Breadcrumb title="Employees" />
-
         {/* EmployeesLayer */}
         <EmployeesLayer />
       </MasterLayout>

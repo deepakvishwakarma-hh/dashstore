@@ -66,15 +66,19 @@
       "inversedBy": "users",
       "configurable": false
     },
-    "store": {
+    "stores": {
       "type": "relation",
-      "relation": "manyToOne",
+      "relation": "manyToMany",
       "target": "api::store.store",
       "inversedBy": "administrators"
     },
     "type": {
       "type": "enumeration",
-      "enum": ["admin", "manager", "employee"]
+      "enum": [
+        "admin",
+        "manager",
+        "employee"
+      ]
     },
     "mobile": {
       "type": "string"

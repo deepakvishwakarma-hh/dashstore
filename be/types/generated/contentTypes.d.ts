@@ -565,7 +565,7 @@ export interface ApiStoreStore extends Struct.CollectionTypeSchema {
   attributes: {
     address: Schema.Attribute.Text;
     administrators: Schema.Attribute.Relation<
-      'oneToMany',
+      'manyToMany',
       'plugin::users-permissions.user'
     >;
     createdAt: Schema.Attribute.DateTime;
@@ -1111,7 +1111,7 @@ export interface PluginUsersPermissionsUser
       'manyToOne',
       'plugin::users-permissions.role'
     >;
-    store: Schema.Attribute.Relation<'manyToOne', 'api::store.store'>;
+    stores: Schema.Attribute.Relation<'manyToMany', 'api::store.store'>;
     type: Schema.Attribute.Enumeration<['admin', 'manager', 'employee']>;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
