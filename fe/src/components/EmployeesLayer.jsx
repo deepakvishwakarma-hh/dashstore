@@ -131,7 +131,7 @@ const EmployeesLayer = () => {
             </thead>
             <tbody>
               {employees.map((employee, index) => {
-                const employeeId = employee.documentId || employee.id;
+                const employeeId = employee.id;
                 return (
                   <tr key={employeeId || index}>
                     <td>

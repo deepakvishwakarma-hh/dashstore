@@ -92,9 +92,16 @@ const ManagersLayer = () => {
             style={{ fontSize: "48px" }}
           />
           <h5 className="mb-2">No managers found</h5>
-          <p className="text-muted mb-0">
+          <p className="text-muted mb-4">
             There are no managers available at the moment.
           </p>
+          <Link
+            href="/managers/new"
+            className="btn btn-primary-600 radius-8 px-20 py-11 d-inline-flex align-items-center gap-2"
+          >
+            <Icon icon="lucide:plus" className="icon text-lg" />
+            Create New Manager
+          </Link>
         </div>
       </div>
     );
@@ -131,7 +138,7 @@ const ManagersLayer = () => {
             </thead>
             <tbody>
               {managers.map((manager, index) => {
-                const managerId = manager.documentId || manager.id;
+                const managerId = manager.id;
                 return (
                   <tr key={managerId || index}>
                     <td>

@@ -17,6 +17,8 @@ const EditEmployeeForm = ({ employeeId }) => {
   const [formData, setFormData] = useState({
     name: "",
     mobile: "",
+    block: false,
+    confirmed: false,
   });
 
   const { data: employee, isLoading: employeeLoading } = useQuery({
@@ -30,6 +32,8 @@ const EditEmployeeForm = ({ employeeId }) => {
       setFormData({
         name: employee.name || "",
         mobile: employee.mobile || "",
+        block: employee.block || false,
+        confirmed: employee.confirmed || false,
       });
     }
   }, [employee]);
@@ -46,6 +50,8 @@ const EditEmployeeForm = ({ employeeId }) => {
         email: email,
         username: username,
         type: "employee",
+        block: data.block,
+        confirmed: data.confirmed,
       });
       return response.data;
     },
@@ -65,10 +71,10 @@ const EditEmployeeForm = ({ employeeId }) => {
   });
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
+    const { name, value, type, checked } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [name]: value,
+      [name]: type === "checkbox" ? checked : value,
     }));
   };
 
@@ -158,7 +164,7 @@ const EditEmployeeForm = ({ employeeId }) => {
                 className="form-control"
                 id="mobile"
                 name="mobile"
-                placeholder="Enter mobile number (e.g., 7354657459)"
+                placeholder="Enter mobile number (e.g., 1234567890)"
                 value={formData.mobile}
                 onChange={handleChange}
                 required
@@ -169,6 +175,38 @@ const EditEmployeeForm = ({ employeeId }) => {
                 Email and username will be auto-updated as:{" "}
                 {emailPreview || "Enter mobile number"}
               </small>
+            </div>
+
+            <div className="col-12">
+              <div className="form-check">
+                <input
+                  className="form-check-input me-2"
+                  type="checkbox"
+                  id="block"
+                  name="block"
+                  checked={formData.block}
+                  onChange={handleChange}
+                />
+                <label className="form-check-label" htmlFor="block">
+                  Block Employee
+                </label>
+              </div>
+            </div>
+
+            <div className="col-12">
+              <div className="form-check">
+                <input
+                  className="form-check-input me-2"
+                  type="checkbox"
+                  id="confirmed"
+                  name="confirmed"
+                  checked={formData.confirmed}
+                  onChange={handleChange}
+                />
+                <label className="form-check-label" htmlFor="confirmed">
+                  Confirmed
+                </label>
+              </div>
             </div>
 
             {emailPreview && (

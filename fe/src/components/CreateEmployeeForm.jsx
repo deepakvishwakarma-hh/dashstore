@@ -122,7 +122,7 @@ const CreateEmployeeForm = () => {
                 className="form-control"
                 id="mobile"
                 name="mobile"
-                placeholder="Enter mobile number (e.g., 7354657459)"
+                placeholder="Enter mobile number (e.g., 1234567890)"
                 value={formData.mobile}
                 onChange={handleChange}
                 required
