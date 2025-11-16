@@ -352,6 +352,15 @@ const Aside = ({ sidebarActive, mobileMenu, mobileMenuControl }) => {
                   <span>Employees</span>
                 </Link>
               </li>
+              <li>
+                <Link
+                  href="/sheet-upload"
+                  className={pathname === "/sheet-upload" ? "active-page" : ""}
+                >
+                  <Icon icon="lucide:file-spreadsheet" className="menu-icon" />
+                  <span>Sheet Upload</span>
+                </Link>
+              </li>
             </>
           )}
 
