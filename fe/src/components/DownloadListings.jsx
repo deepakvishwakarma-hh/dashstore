@@ -8,18 +8,19 @@ const DownloadListings = () => {
     try {
       // Fetch store listing from API
       const response = await strapiApi.get("/stores");
-      const stores = response.data || [];
+
+      const stores = response.data.data || [];
 
       // Convert to CSV format
-      const headers = ["Store ID", "Store Name", "Location", "Status"];
+      const headers = ["ID", "Name", "Slug", "Address", "Status"];
       const csvRows = [headers];
 
       stores.forEach((store) => {
         csvRows.push([
           store.id || "",
-          store.name || store.storeName || "",
-          store.location || "",
-          store.status || "Active",
+          store.name || "",
+          store.slug || "",
+          store.address || "",
         ]);
       });
 
@@ -50,18 +51,17 @@ const DownloadListings = () => {
     try {
       // Fetch category listing from API
       const response = await strapiApi.get("/categories");
-      const categories = response.data || [];
+      const categories = response.data.data || [];
 
       // Convert to CSV format
-      const headers = ["Category ID", "Category Name", "Description", "Status"];
+      const headers = ["ID", "Name", "Slug"];
       const csvRows = [headers];
 
       categories.forEach((category) => {
         csvRows.push([
           category.id || "",
-          category.name || category.categoryName || "",
-          category.description || "",
-          category.status || "Active",
+          category.name || "",
+          category.slug || "",
         ]);
       });
 
@@ -91,26 +91,20 @@ const DownloadListings = () => {
   const handleDownloadProductListing = async () => {
     try {
       // Fetch product listing from API
-      const response = await strapiApi.get("/products");
-      const products = response.data || [];
+      const response = await strapiApi.get("/products?populate=categories");
+      const products = response.data.data || [];
 
       // Convert to CSV format
-      const headers = [
-        "Product ID",
-        "Product Name",
-        "Category",
-        "Price",
-        "Status",
-      ];
+      const headers = ["ID", "Name", "Categories", "Price", "Slug"];
       const csvRows = [headers];
 
       products.forEach((product) => {
         csvRows.push([
           product.id || "",
-          product.name || product.productName || "",
-          product.category?.name || product.category || "",
+          product.name || "",
+          product.categories.map((category) => category.name).join(",") || "",
           product.price || "",
-          product.status || "Active",
+          product.slug || "",
         ]);
       });
 
