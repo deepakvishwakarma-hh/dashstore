@@ -1,6 +1,7 @@
 "use client";
 import { useQuery } from "@tanstack/react-query";
 import strapiApi from "@/lib/strapi";
+import { normalizeStore } from "@/lib/normalizeStore";
 import { useSession } from "./useSession";
 
 /**
@@ -28,20 +29,16 @@ export function useStores(options = {}) {
     queryKey: ["stores"],
     queryFn: async () => {
       try {
-        const response = await strapiApi.get("/stores?pagination[limit]=1000");
+        const response = await strapiApi.get(
+          "/stores?pagination[limit]=1000&populate[administrators]=*"
+        );
 
-        // Handle Strapi v4 response structure
+        // Handle Strapi response structure
         const stores = response.data?.data || response.data || [];
 
-        // Map stores to consistent format
-        return stores.map((store) => ({
-          id: store.id,
-          name: store.name || store.attributes?.name,
-          slug: store.slug || store.attributes?.slug,
-          address: store.address || store.attributes?.address,
-          // Include all other fields
-          ...(store.attributes || store),
-        }));
+        return stores
+          .map((store) => normalizeStore(store))
+          .filter((store) => store);
       } catch (error) {
         console.error("Error fetching stores:", error);
         throw error;

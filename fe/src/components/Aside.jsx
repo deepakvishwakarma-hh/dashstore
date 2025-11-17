@@ -312,6 +312,19 @@ const Aside = ({ sidebarActive, mobileMenu, mobileMenuControl }) => {
               </li>
               <li>
                 <Link
+                  href="/stores"
+                  className={
+                    pathname === "/stores" || pathname?.startsWith("/stores/")
+                      ? "active-page"
+                      : ""
+                  }
+                >
+                  <Icon icon="solar:shop-2-bold" className="menu-icon" />
+                  <span>Stores</span>
+                </Link>
+              </li>
+              <li>
+                <Link
                   href="/categories"
                   className={
                     pathname === "/categories" ||
