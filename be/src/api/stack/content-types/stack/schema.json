@@ -16,6 +16,12 @@
     },
     "label": {
       "type": "string"
+    },
+    "sales": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::sale.sale",
+      "mappedBy": "stack"
     }
   }
 }

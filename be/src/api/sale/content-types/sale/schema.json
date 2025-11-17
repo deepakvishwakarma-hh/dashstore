@@ -28,8 +28,9 @@
     },
     "stack": {
       "type": "relation",
-      "relation": "oneToOne",
-      "target": "api::stack.stack"
+      "relation": "manyToOne",
+      "target": "api::stack.stack",
+      "inversedBy": "sales"
     },
     "qty": {
       "type": "biginteger"

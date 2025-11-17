@@ -518,7 +518,7 @@ export interface ApiSaleSale extends Struct.CollectionTypeSchema {
     product: Schema.Attribute.Relation<'oneToOne', 'api::product.product'>;
     publishedAt: Schema.Attribute.DateTime;
     qty: Schema.Attribute.BigInteger;
-    stack: Schema.Attribute.Relation<'oneToOne', 'api::stack.stack'>;
+    stack: Schema.Attribute.Relation<'manyToOne', 'api::stack.stack'>;
     store: Schema.Attribute.Relation<'oneToOne', 'api::store.store'>;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
@@ -546,6 +546,7 @@ export interface ApiStackStack extends Struct.CollectionTypeSchema {
     localizations: Schema.Attribute.Relation<'oneToMany', 'api::stack.stack'> &
       Schema.Attribute.Private;
     publishedAt: Schema.Attribute.DateTime;
+    sales: Schema.Attribute.Relation<'oneToMany', 'api::sale.sale'>;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
