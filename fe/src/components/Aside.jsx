@@ -325,6 +325,19 @@ const Aside = ({ sidebarActive, mobileMenu, mobileMenuControl }) => {
               </li>
               <li>
                 <Link
+                  href="/targets"
+                  className={
+                    pathname === "/targets" || pathname?.startsWith("/targets/")
+                      ? "active-page"
+                      : ""
+                  }
+                >
+                  <Icon icon="solar:target-bold" className="menu-icon" />
+                  <span>Targets</span>
+                </Link>
+              </li>
+              <li>
+                <Link
                   href="/categories"
                   className={
                     pathname === "/categories" ||

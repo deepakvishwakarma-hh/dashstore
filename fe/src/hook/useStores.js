@@ -29,9 +29,7 @@ export function useStores(options = {}) {
     queryKey: ["stores"],
     queryFn: async () => {
       try {
-        const response = await strapiApi.get(
-          "/stores?pagination[limit]=1000&populate[administrators]=*"
-        );
+        const response = await strapiApi.get("/stores?pagination[limit]=1000");
 
         // Handle Strapi response structure
         const stores = response.data?.data || response.data || [];
