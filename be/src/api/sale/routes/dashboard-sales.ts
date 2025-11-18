@@ -22,6 +22,15 @@ export default {
                 middlewares: [],
             },
         },
+        {
+            method: 'GET',
+            path: '/dashboard/sales/store-comparison',
+            handler: 'api::sale.sale.storeComparison',
+            config: {
+                policies: [],
+                middlewares: [],
+            },
+        },
     ],
 };
 

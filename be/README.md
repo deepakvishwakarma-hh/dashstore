@@ -53,6 +53,20 @@ The `/api/dashboard/sales/overview` endpoint aggregates the `sales`, `stores`, `
 
 > 🔐 Remember to grant the desired Strapi roles access to `GET /dashboard/sales/overview` from the **Content-Type Builder → Permissions** screen before calling the endpoint from the frontend.
 
+### Store Comparison API
+
+`GET /dashboard/sales/store-comparison` powers the Store Comparison page.
+
+- **Query Params (optional):**
+  - `filterType`, `year`, `month`, `fromDate`, `toDate`: same semantics as the overview endpoint
+  - `storeSlugs`: comma separated store slugs to compare (defaults to the top 3 stores if omitted)
+- **Response Outline:**
+  - `filter`: resolved filter metadata plus the applied store slugs
+  - `metadata`: available years/months, selectable stores (id/name/slug/total), and default store selections
+  - `stores`: per-store totals, top category/product, and category/product/monthly breakdowns
+  - `charts.comparison`: normalized months plus per-store series for the comparison line chart
+  - `totals`: summary counts such as total stores included and aggregate quantity
+
 ## ⚙️ Deployment
 
 Strapi gives you many possible deployment options for your project including [Strapi Cloud](https://cloud.strapi.io). Browse the [deployment section of the documentation](https://docs.strapi.io/dev-docs/deployment) to find the best solution for your use case.

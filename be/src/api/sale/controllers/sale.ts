@@ -31,4 +31,15 @@ export default factories.createCoreController('api::sale.sale', ({ strapi }) => 
             ctx.throw(error?.status || 400, message);
         }
     },
+
+    async storeComparison(ctx) {
+        try {
+            const data = await strapi.service('api::sale.sale').getStoreComparisonOverview(ctx.request.query);
+            ctx.body = data;
+        } catch (error: any) {
+            strapi.log.error('Store comparison error', error);
+            const message = error?.message || 'Failed to fetch store comparison data';
+            ctx.throw(error?.status || 400, message);
+        }
+    },
 }));

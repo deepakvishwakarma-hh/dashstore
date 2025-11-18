@@ -136,6 +136,21 @@ const parseStoreIds = (input?: string | string[]): number[] => {
     return Array.from(new Set(ids));
 };
 
+const parseStoreSlugs = (input?: string | string[]): string[] => {
+    if (!input) {
+        return [];
+    }
+
+    const rawList = Array.isArray(input)
+        ? input
+        : input
+            .split(',')
+            .map((entry) => entry.trim())
+            .filter(Boolean);
+
+    return Array.from(new Set(rawList));
+};
+
 const parseDateParts = (dateStr?: string | null): { year: number; month: number; day: number } | null => {
     if (!dateStr) {
         return null;
@@ -575,6 +590,218 @@ const computePreviousRange = (
 };
 
 export default factories.createCoreService('api::sale.sale', ({ strapi }) => ({
+    async getStoreComparisonOverview(rawParams: Record<string, any> = {}) {
+        const knex = strapi.db.connection;
+
+        const [allSalesRows, storesTotalsRows]: [SalesRow[], StoreTotalsRow[]] = await Promise.all([
+            knex('sales as s').select('s.id', 's.date', 's.qty'),
+            knex('sales as s')
+                .leftJoin('sales_store_lnk as storeLink', 'storeLink.sale_id', 's.id')
+                .leftJoin('stores as store', 'storeLink.store_id', 'store.id')
+                .select('store.id as id', 'store.name as name', 'store.slug as slug')
+                .sum({ totalSales: 's.qty' })
+                .groupBy('store.id', 'store.name', 'store.slug'),
+        ]);
+
+        const metadata = buildMetadata(allSalesRows);
+        const normalized = normalizeParams(rawParams, metadata);
+
+        const storesMetadata = storesTotalsRows
+            .filter((row): row is StoreTotalsRow & { id: number; name: string } => row.id !== null && !!row.name)
+            .map((row) => ({
+                id: row.id!,
+                name: row.name!,
+                slug: row.slug,
+                totalSales: toNumber(row.totalSales),
+            }))
+            .sort((a, b) => b.totalSales - a.totalSales);
+
+        const defaultStoreSlugs = storesMetadata
+            .map((store) => store.slug)
+            .filter((slug): slug is string => Boolean(slug))
+            .slice(0, 3);
+
+        const requestedStoreSlugs = parseStoreSlugs(
+            rawParams.storeSlugs ?? rawParams.storeSlug ?? rawParams.stores,
+        );
+
+        let selectedStoreRecords: Array<{ id: number; name: string; slug: string | null }> = [];
+
+        if (requestedStoreSlugs.length > 0) {
+            const storeRecords = await knex('stores')
+                .whereIn('slug', requestedStoreSlugs)
+                .select('id', 'name', 'slug');
+
+            const missingSlugs = requestedStoreSlugs.filter(
+                (slug) => !storeRecords.some((record) => record.slug === slug),
+            );
+
+            if (missingSlugs.length > 0) {
+                throw new Error(`Stores not found for slugs: ${missingSlugs.join(', ')}`);
+            }
+
+            selectedStoreRecords = storeRecords;
+        } else if (defaultStoreSlugs.length > 0) {
+            selectedStoreRecords = storesMetadata
+                .filter((store) => store.slug && store.id)
+                .slice(0, Math.max(defaultStoreSlugs.length, 1))
+                .map((store) => ({
+                    id: store.id,
+                    name: store.name,
+                    slug: store.slug,
+                }));
+        } else {
+            throw new Error('No stores available for comparison');
+        }
+
+        const selectedStoreIds = selectedStoreRecords
+            .map((record) => record.id)
+            .filter((id): id is number => typeof id === 'number');
+
+        if (selectedStoreIds.length === 0) {
+            throw new Error('No store IDs available for comparison');
+        }
+
+        normalized.storeIds = selectedStoreIds;
+
+        const detailedQuery = knex('sales as s')
+            .leftJoin('sales_store_lnk as storeLink', 'storeLink.sale_id', 's.id')
+            .leftJoin('stores as store', 'storeLink.store_id', 'store.id')
+            .leftJoin('sales_category_lnk as categoryLink', 'categoryLink.sale_id', 's.id')
+            .leftJoin('categories as category', 'categoryLink.category_id', 'category.id')
+            .leftJoin('sales_product_lnk as productLink', 'productLink.sale_id', 's.id')
+            .leftJoin('products as product', 'productLink.product_id', 'product.id')
+            .select(
+                's.id',
+                's.date',
+                's.qty',
+                'storeLink.store_id as store_id',
+                'store.name as store_name',
+                'store.slug as store_slug',
+                'categoryLink.category_id as category_id',
+                'category.name as category_name',
+                'productLink.product_id as product_id',
+                'product.name as product_name',
+            )
+            .whereIn('storeLink.store_id', selectedStoreIds);
+
+        if (normalized.range.startDate && normalized.range.endDate) {
+            detailedQuery.whereBetween('s.date', [normalized.range.startDate, normalized.range.endDate]);
+        }
+
+        const filteredRows: DetailedSalesRow[] = await detailedQuery;
+
+        const performance = buildStorePerformance(filteredRows);
+
+        const storePerformanceById = new Map<number, StorePerformance>();
+        const storePerformanceBySlug = new Map<string, StorePerformance>();
+
+        performance.storePerformance.forEach((store) => {
+            if (typeof store.storeId === 'number') {
+                storePerformanceById.set(store.storeId, store);
+            }
+            if (store.storeSlug) {
+                storePerformanceBySlug.set(store.storeSlug, store);
+            }
+        });
+
+        const stores = selectedStoreRecords.map((record, index) => {
+            const performanceData =
+                (typeof record.id === 'number' ? storePerformanceById.get(record.id) : undefined) ||
+                (record.slug ? storePerformanceBySlug.get(record.slug) : undefined);
+
+            const categoriesMap = performanceData?.categories ?? new Map<string, number>();
+            const productsMap = performanceData?.products ?? new Map<string, number>();
+            const monthlyMap = performanceData?.monthly ?? new Map<string, number>();
+
+            const topCategory = buildRankings(categoriesMap, 1)[0]?.label ?? 'N/A';
+            const topProduct = buildRankings(productsMap, 1)[0]?.label ?? 'N/A';
+
+            return {
+                storeId: record.id,
+                storename: record.name ?? performanceData?.storename ?? `Store ${index + 1}`,
+                storeSlug: record.slug ?? performanceData?.storeSlug ?? null,
+                totalSales: performanceData?.totalSales ?? 0,
+                topCategory,
+                topProduct,
+                categorySales: buildRankings(categoriesMap).map(({ label, sales }) => ({
+                    category: label,
+                    sales,
+                })),
+                productSales: buildRankings(productsMap).map(({ label, sales }) => ({
+                    product: label,
+                    sales,
+                })),
+                monthlySales: buildMonthlySeries(monthlyMap),
+            };
+        });
+
+        const monthIndex = (label: string) => {
+            const idx = MONTH_NAMES.indexOf(label as (typeof MONTH_NAMES)[number]);
+            return idx === -1 ? MONTH_NAMES.length : idx;
+        };
+
+        const comparisonMonthSet = new Set<string>();
+        stores.forEach((store) => {
+            store.monthlySales.months.forEach((month) => comparisonMonthSet.add(month));
+        });
+
+        const comparisonMonths = Array.from(comparisonMonthSet).sort(
+            (a, b) => monthIndex(a) - monthIndex(b),
+        );
+
+        const comparisonSeries = stores.map((store) => ({
+            name: store.storename,
+            storeSlug: store.storeSlug,
+            data: comparisonMonths.map((month) => {
+                const idx = store.monthlySales.months.indexOf(month);
+                return idx >= 0 ? store.monthlySales.sales[idx] : 0;
+            }),
+        }));
+
+        const totals = {
+            totalStores: stores.length,
+            totalQuantity: stores.reduce((sum, store) => sum + (store.totalSales ?? 0), 0),
+        };
+
+        const response = {
+            filter: {
+                type: normalized.filterType,
+                year: normalized.year ?? null,
+                month: normalized.month ?? null,
+                range: normalized.range,
+                appliedStoreSlugs:
+                    selectedStoreRecords.map((record) => record.slug).filter(
+                        (slug): slug is string => Boolean(slug),
+                    ) || defaultStoreSlugs,
+            },
+            metadata: {
+                availableYears: metadata.availableYears,
+                availableMonthsByYear: metadata.availableMonthsByYear,
+                monthsForSelectedYear: getMonthsForYear(metadata.availableMonthsByYear, normalized.year),
+                defaultSelections: {
+                    year: normalized.defaults.year,
+                    month: normalized.defaults.month,
+                    stores: defaultStoreSlugs,
+                },
+                availableStores: storesMetadata,
+            },
+            stores,
+            charts: {
+                comparison: {
+                    months: comparisonMonths,
+                    series: comparisonSeries,
+                },
+            },
+            totals,
+            counts: {
+                totalRows: filteredRows.length,
+            },
+        };
+
+        return response;
+    },
+
     async getDashboardOverview(rawParams: Record<string, any> = {}) {
         const knex = strapi.db.connection;
         const [allSalesRows, storesTotalsRows]: [SalesRow[], StoreTotalsRow[]] = await Promise.all([

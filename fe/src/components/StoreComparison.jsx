@@ -1,9 +1,8 @@
 "use client";
 import React, { useState, useMemo, useEffect } from "react";
-import salesData from "@/data/sales.json";
-import configData from "@/data/config.json";
 import { Icon } from "@iconify/react";
 import dynamic from "next/dynamic";
+import { useStoreComparison } from "@/hook/useStoreComparison";
 const ReactApexChart = dynamic(() => import("react-apexcharts"), {
   ssr: false,
 });
@@ -14,43 +13,77 @@ const StoreComparison = () => {
   const [selectedMonth, setSelectedMonth] = useState("");
   const [customFromDate, setCustomFromDate] = useState("");
   const [customToDate, setCustomToDate] = useState("");
-  const [selectedStores, setSelectedStores] = useState([]);
+  const [selectedStoreSlugs, setSelectedStoreSlugs] = useState([]);
 
-  // Extract unique years and months from data
-  const availableYears = useMemo(() => {
-    const years = new Set();
-    salesData.forEach((item) => {
-      const year = new Date(item.date).getFullYear();
-      years.add(year);
-    });
-    return Array.from(years).sort((a, b) => b - a);
-  }, []);
+  const isCustomRangeIncomplete =
+    filterType === "custom" && (!customFromDate || !customToDate);
+
+  const queryParams = useMemo(() => {
+    const params = {
+      filterType,
+    };
+
+    if ((filterType === "yearly" || filterType === "monthly") && selectedYear) {
+      const yearAsNumber = parseInt(selectedYear, 10);
+      if (!Number.isNaN(yearAsNumber)) {
+        params.year = yearAsNumber;
+      }
+    }
+
+    if (filterType === "monthly" && selectedMonth) {
+      const monthAsNumber = parseInt(selectedMonth, 10);
+      if (!Number.isNaN(monthAsNumber)) {
+        params.month = monthAsNumber;
+      }
+    }
+
+    if (filterType === "custom" && customFromDate && customToDate) {
+      params.fromDate = customFromDate;
+      params.toDate = customToDate;
+    }
+
+    if (selectedStoreSlugs.length > 0) {
+      params.storeSlugs = selectedStoreSlugs.join(",");
+    }
+
+    return params;
+  }, [
+    filterType,
+    selectedYear,
+    selectedMonth,
+    customFromDate,
+    customToDate,
+    selectedStoreSlugs,
+  ]);
+
+  const {
+    data: comparisonData,
+    isLoading,
+    isFetching,
+    isError,
+    error,
+    refetch,
+  } = useStoreComparison(queryParams, {
+    enabled: !isCustomRangeIncomplete,
+  });
+
+  const metadata = comparisonData?.metadata ?? {};
+  const filterInfo = comparisonData?.filter ?? {};
+  const availableYears = metadata.availableYears ?? [];
+  const availableMonthsByYear = metadata.availableMonthsByYear ?? {};
+  const availableStores = metadata.availableStores ?? [];
 
   const availableMonths = useMemo(() => {
-    const months = new Set();
-    salesData.forEach((item) => {
-      const date = new Date(item.date);
-      const year = date.getFullYear();
-      const month = date.getMonth();
-      if (selectedYear && year === parseInt(selectedYear)) {
-        months.add(month);
-      } else if (!selectedYear) {
-        months.add(month);
-      }
-    });
-    return Array.from(months).sort((a, b) => a - b);
-  }, [selectedYear]);
+    if (!selectedYear) {
+      return [];
+    }
+    return (
+      availableMonthsByYear[selectedYear] ??
+      availableMonthsByYear[Number(selectedYear)] ??
+      []
+    );
+  }, [availableMonthsByYear, selectedYear]);
 
-  // Get all available stores
-  const availableStores = useMemo(() => {
-    const stores = new Set();
-    salesData.forEach((item) => {
-      stores.add(item.storename);
-    });
-    return Array.from(stores).sort();
-  }, []);
-
-  // Set default year and month on mount
   useEffect(() => {
     if (availableYears.length > 0 && !selectedYear) {
       setSelectedYear(availableYears[0].toString());
@@ -67,148 +100,38 @@ const StoreComparison = () => {
     }
   }, [availableMonths, selectedMonth, filterType]);
 
-  // Set default stores (top 3) on mount
+  const appliedStoreSlugs = filterInfo?.appliedStoreSlugs ?? [];
+
   useEffect(() => {
-    if (availableStores.length > 0 && selectedStores.length === 0) {
-      // Get top 3 stores by total sales
-      const storeSales = {};
-      salesData.forEach((item) => {
-        storeSales[item.storename] =
-          (storeSales[item.storename] || 0) + item.sale;
-      });
-      const topStores = Object.entries(storeSales)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 3)
-        .map(([store]) => store);
-      setSelectedStores(topStores);
+    if (selectedStoreSlugs.length === 0 && appliedStoreSlugs.length > 0) {
+      setSelectedStoreSlugs(appliedStoreSlugs);
     }
-  }, [availableStores, selectedStores.length]);
+  }, [appliedStoreSlugs, selectedStoreSlugs.length]);
 
-  // Date filtering logic
-  const getFilteredData = () => {
-    let startDate, endDate;
-
-    switch (filterType) {
-      case "yearly":
-        if (selectedYear) {
-          const year = parseInt(selectedYear);
-          startDate = new Date(year, 0, 1);
-          endDate = new Date(year, 11, 31, 23, 59, 59);
-        } else {
-          return salesData;
+  const handleStoreToggle = (storeSlug) => {
+    if (!storeSlug) return;
+    setSelectedStoreSlugs((prev) => {
+      if (prev.includes(storeSlug)) {
+        if (prev.length === 1) {
+          return prev;
         }
-        break;
-      case "monthly":
-        if (selectedYear && selectedMonth) {
-          const year = parseInt(selectedYear);
-          const month = parseInt(selectedMonth);
-          startDate = new Date(year, month, 1);
-          endDate = new Date(year, month + 1, 0, 23, 59, 59);
-        } else {
-          return salesData;
-        }
-        break;
-      case "weekly":
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const dayOfWeek = today.getDay();
-        startDate = new Date(today);
-        startDate.setDate(today.getDate() - dayOfWeek);
-        endDate = new Date(startDate);
-        endDate.setDate(startDate.getDate() + 6);
-        endDate.setHours(23, 59, 59);
-        break;
-      case "daily":
-        const todayDaily = new Date();
-        todayDaily.setHours(0, 0, 0, 0);
-        startDate = new Date(todayDaily);
-        endDate = new Date(todayDaily);
-        endDate.setHours(23, 59, 59);
-        break;
-      case "yesterday":
-        const todayYesterday = new Date();
-        todayYesterday.setHours(0, 0, 0, 0);
-        startDate = new Date(todayYesterday);
-        startDate.setDate(todayYesterday.getDate() - 1);
-        endDate = new Date(startDate);
-        endDate.setHours(23, 59, 59);
-        break;
-      case "custom":
-        if (customFromDate && customToDate) {
-          startDate = new Date(customFromDate);
-          endDate = new Date(customToDate);
-          endDate.setHours(23, 59, 59);
-        } else {
-          return salesData;
-        }
-        break;
-      default:
-        return salesData;
-    }
-
-    return salesData.filter((item) => {
-      const itemDate = new Date(item.date);
-      return itemDate >= startDate && itemDate <= endDate;
+        return prev.filter((slug) => slug !== storeSlug);
+      }
+      return [...prev, storeSlug];
     });
   };
 
-  const filteredData = useMemo(
-    () => getFilteredData(),
-    [filterType, selectedYear, selectedMonth, customFromDate, customToDate]
+  const storeOptions = useMemo(
+    () =>
+      availableStores
+        .filter((store) => store.slug)
+        .map((store) => ({
+          slug: store.slug,
+          name: store.name,
+        })),
+    [availableStores]
   );
 
-  // Store comparison data
-  const storeComparisonData = useMemo(() => {
-    if (selectedStores.length === 0) return [];
-
-    return selectedStores.map((storeName) => {
-      const storeData = filteredData.filter(
-        (item) => item.storename === storeName
-      );
-
-      const totalSales = storeData.reduce((sum, item) => sum + item.sale, 0);
-
-      // Category breakdown
-      const categorySales = {};
-      storeData.forEach((item) => {
-        categorySales[item.category] =
-          (categorySales[item.category] || 0) + item.sale;
-      });
-      const topCategory =
-        Object.entries(categorySales).sort((a, b) => b[1] - a[1])[0]?.[0] ||
-        "N/A";
-
-      // Product breakdown
-      const productSales = {};
-      storeData.forEach((item) => {
-        productSales[item.product] =
-          (productSales[item.product] || 0) + item.sale;
-      });
-      const topProduct =
-        Object.entries(productSales).sort((a, b) => b[1] - a[1])[0]?.[0] ||
-        "N/A";
-
-      // Monthly sales data
-      const monthlyData = {};
-      storeData.forEach((item) => {
-        const date = new Date(item.date);
-        const monthKey = date.toLocaleString("default", { month: "short" });
-        monthlyData[monthKey] = (monthlyData[monthKey] || 0) + item.sale;
-      });
-
-      return {
-        storeName,
-        totalSales,
-        topCategory,
-        topProduct,
-        categorySales,
-        productSales,
-        monthlyData,
-      };
-    });
-  }, [filteredData, selectedStores]);
-
-  // Colors for stores
   const storeColors = [
     "#487FFF",
     "#10B981",
@@ -218,51 +141,36 @@ const StoreComparison = () => {
     "#EC4899",
   ];
 
-  // Comparison chart data
+  const storeComparisonData = useMemo(() => {
+    if (!comparisonData?.stores) {
+      return [];
+    }
+    return comparisonData.stores.map((store, index) => ({
+      storeName: store.storename || store.storeSlug || `Store ${index + 1}`,
+      storeSlug: store.storeSlug,
+      totalSales: store.totalSales ?? 0,
+      topCategory: store.topCategory ?? "N/A",
+      topProduct: store.topProduct ?? "N/A",
+      categorySales: store.categorySales ?? [],
+      productSales: store.productSales ?? [],
+      monthlyData: store.monthlySales ?? { months: [], sales: [] },
+    }));
+  }, [comparisonData?.stores]);
+
   const comparisonChartData = useMemo(() => {
-    const monthNames = [
-      "Jan",
-      "Feb",
-      "Mar",
-      "Apr",
-      "May",
-      "Jun",
-      "Jul",
-      "Aug",
-      "Sep",
-      "Oct",
-      "Nov",
-      "Dec",
-    ];
-    const allMonths = new Set();
-
-    storeComparisonData.forEach((store) => {
-      Object.keys(store.monthlyData).forEach((month) => allMonths.add(month));
-    });
-
-    const sortedMonths = Array.from(allMonths).sort((a, b) => {
-      return monthNames.indexOf(a) - monthNames.indexOf(b);
-    });
-
+    const chart = comparisonData?.charts?.comparison;
+    if (!chart) {
+      return { months: [], series: [] };
+    }
+    const coloredSeries = (chart.series ?? []).map((series, index) => ({
+      ...series,
+      color: storeColors[index % storeColors.length],
+    }));
     return {
-      months: sortedMonths,
-      series: storeComparisonData.map((store, index) => ({
-        name: store.storeName,
-        data: sortedMonths.map((month) => store.monthlyData[month] || 0),
-        color: storeColors[index % storeColors.length],
-      })),
+      months: chart.months ?? [],
+      series: coloredSeries,
     };
-  }, [storeComparisonData]);
-
-  const handleStoreToggle = (storeName) => {
-    setSelectedStores((prev) => {
-      if (prev.includes(storeName)) {
-        return prev.filter((s) => s !== storeName);
-      } else {
-        return [...prev, storeName];
-      }
-    });
-  };
+  }, [comparisonData?.charts?.comparison, storeColors]);
 
   return (
     <>
@@ -393,341 +301,405 @@ const StoreComparison = () => {
           <h6 className="text-md fw-semibold mb-0">Select Stores to Compare</h6>
         </div>
         <div className="card-body p-16">
-          <div className="row g-2">
-            {availableStores.map((store) => (
-              <div key={store} className="col-lg-2 col-md-2 col-sm-3 col-4">
+          {isLoading ? (
+            <div className="text-center py-4">
+              <p className="text-muted">Loading stores...</p>
+            </div>
+          ) : isError ? (
+            <div className="text-center py-4">
+              <p className="text-danger">
+                Error loading stores: {error?.message}
+              </p>
+            </div>
+          ) : (
+            <div className="row g-2">
+              {storeOptions.map((store) => (
                 <div
-                  className={`card border cursor-pointer ${
-                    selectedStores.includes(store) ? "border-primary" : ""
-                  }`}
-                  onClick={() => handleStoreToggle(store)}
-                  style={{
-                    cursor: "pointer",
-                    transition: "all 0.3s",
-                    backgroundColor: selectedStores.includes(store)
-                      ? "#E8F0FE"
-                      : "",
-                  }}
+                  key={store.slug}
+                  className="col-lg-2 col-md-2 col-sm-3 col-4"
                 >
-                  <div className="card-body p-12 text-center">
-                    <Icon
-                      icon="solar:shop-2-bold"
-                      className="text-lg mb-1"
-                      style={{
-                        color: selectedStores.includes(store) ? "#487FFF" : "",
-                      }}
-                    />
-                    <p
-                      className="mb-0 fw-semibold text-sm"
-                      style={{
-                        fontSize: "12px",
-                        color: selectedStores.includes(store) ? "#487FFF" : "",
-                      }}
-                    >
-                      {store}
-                    </p>
+                  <div
+                    className={`card border cursor-pointer ${
+                      selectedStoreSlugs.includes(store.slug)
+                        ? "border-primary"
+                        : ""
+                    }`}
+                    onClick={() => handleStoreToggle(store.slug)}
+                    style={{
+                      cursor: "pointer",
+                      transition: "all 0.3s",
+                      backgroundColor: selectedStoreSlugs.includes(store.slug)
+                        ? "#E8F0FE"
+                        : "",
+                    }}
+                  >
+                    <div className="card-body p-12 text-center">
+                      <Icon
+                        icon="solar:shop-2-bold"
+                        className="text-lg mb-1"
+                        style={{
+                          color: selectedStoreSlugs.includes(store.slug)
+                            ? "#487FFF"
+                            : "",
+                        }}
+                      />
+                      <p
+                        className="mb-0 fw-semibold text-sm"
+                        style={{
+                          fontSize: "12px",
+                          color: selectedStoreSlugs.includes(store.slug)
+                            ? "#487FFF"
+                            : "",
+                        }}
+                      >
+                        {store.name}
+                      </p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
-      {selectedStores.length > 0 && (
+      {selectedStoreSlugs.length > 0 && (
         <>
-          {/* Store Comparison Cards */}
-          <div className="row gy-2 mb-2">
-            {storeComparisonData.map((store, index) => (
-              <div key={store.storeName} className="col-lg-4 col-md-6">
-                <div className="card h-100">
-                  <div className="card-header border-bottom bg-base py-12 px-16">
-                    <div className="d-flex align-items-center gap-2">
-                      <div
-                        style={{
-                          width: "10px",
-                          height: "10px",
-                          backgroundColor:
-                            storeColors[index % storeColors.length],
-                          borderRadius: "50%",
-                        }}
-                      ></div>
+          {isLoading || isFetching ? (
+            <div className="card mb-4">
+              <div className="card-body p-24 text-center">
+                <p className="text-muted">Loading comparison data...</p>
+              </div>
+            </div>
+          ) : isError ? (
+            <div className="card mb-4">
+              <div className="card-body p-24 text-center">
+                <p className="text-danger">
+                  Error loading comparison data: {error?.message}
+                </p>
+                <button
+                  className="btn btn-primary mt-2"
+                  onClick={() => refetch()}
+                >
+                  Retry
+                </button>
+              </div>
+            </div>
+          ) : storeComparisonData.length === 0 ? (
+            <div className="card mb-4">
+              <div className="card-body p-24 text-center">
+                <p className="text-muted">No comparison data available</p>
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* Store Comparison Cards */}
+              <div className="row gy-2 mb-2">
+                {storeComparisonData.map((store, index) => (
+                  <div key={store.storeName} className="col-lg-4 col-md-6">
+                    <div className="card h-100">
+                      <div className="card-header border-bottom bg-base py-12 px-16">
+                        <div className="d-flex align-items-center gap-2">
+                          <div
+                            style={{
+                              width: "10px",
+                              height: "10px",
+                              backgroundColor:
+                                storeColors[index % storeColors.length],
+                              borderRadius: "50%",
+                            }}
+                          ></div>
+                          <h6 className="text-md fw-semibold mb-0">
+                            {store.storeName}
+                          </h6>
+                        </div>
+                      </div>
+                      <div className="card-body p-16">
+                        <div className="mb-2">
+                          <p className="text-xs text-primary-light mb-1">
+                            Total Sales
+                          </p>
+                          <h5 className="fw-bold mb-0">
+                            {store.totalSales.toLocaleString()}
+                          </h5>
+                        </div>
+                        <div className="mb-2">
+                          <p className="text-xs text-primary-light mb-1">
+                            Top Category
+                          </p>
+                          <span className="badge bg-info">
+                            {store.topCategory}
+                          </span>
+                        </div>
+                        <div>
+                          <p className="text-xs text-primary-light mb-1">
+                            Top Product
+                          </p>
+                          <span className="badge bg-success">
+                            {store.topProduct}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Comparison Charts - Side by Side */}
+              <div className="row gy-2 mb-2">
+                {/* Sales Comparison Over Time */}
+                <div className="col-lg-6 col-xl-6">
+                  <div className="card h-100">
+                    <div className="card-header border-bottom bg-base py-12 px-16">
                       <h6 className="text-md fw-semibold mb-0">
-                        {store.storeName}
+                        Sales Comparison Over Time
                       </h6>
                     </div>
+                    <div className="card-body p-16">
+                      <ReactApexChart
+                        options={{
+                          chart: {
+                            type: "line",
+                            height: 300,
+                            toolbar: { show: false },
+                            zoom: { enabled: false },
+                          },
+                          stroke: {
+                            curve: "smooth",
+                            width: 3,
+                          },
+                          colors: comparisonChartData.series.map(
+                            (s) => s.color
+                          ),
+                          xaxis: {
+                            categories: comparisonChartData.months,
+                            labels: {
+                              style: {
+                                fontSize: "12px",
+                              },
+                            },
+                          },
+                          yaxis: {
+                            title: {
+                              text: "Sales Units",
+                            },
+                            labels: {
+                              formatter: function (val) {
+                                return val.toLocaleString();
+                              },
+                            },
+                          },
+                          legend: {
+                            position: "top",
+                            horizontalAlign: "right",
+                          },
+                          grid: {
+                            borderColor: "#e7e7e7",
+                            strokeDashArray: 3,
+                          },
+                          tooltip: {
+                            theme: "light",
+                            y: {
+                              formatter: function (val) {
+                                return val.toLocaleString() + " units";
+                              },
+                            },
+                          },
+                        }}
+                        series={comparisonChartData.series}
+                        type="line"
+                        height={300}
+                      />
+                    </div>
                   </div>
-                  <div className="card-body p-16">
-                    <div className="mb-2">
-                      <p className="text-xs text-primary-light mb-1">
-                        Total Sales
-                      </p>
-                      <h5 className="fw-bold mb-0">
-                        {store.totalSales.toLocaleString()}
-                      </h5>
-                    </div>
-                    <div className="mb-2">
-                      <p className="text-xs text-primary-light mb-1">
-                        Top Category
-                      </p>
-                      <span className="badge bg-info">{store.topCategory}</span>
-                    </div>
-                    <div>
-                      <p className="text-xs text-primary-light mb-1">
-                        Top Product
-                      </p>
-                      <span className="badge bg-success">
-                        {store.topProduct}
-                      </span>
-                    </div>
-                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
 
-          {/* Comparison Charts - Side by Side */}
-          <div className="row gy-2 mb-2">
-            {/* Sales Comparison Over Time */}
-            <div className="col-lg-6 col-xl-6">
-              <div className="card h-100">
-                <div className="card-header border-bottom bg-base py-12 px-16">
-                  <h6 className="text-md fw-semibold mb-0">
-                    Sales Comparison Over Time
-                  </h6>
-                </div>
-                <div className="card-body p-16">
-                  <ReactApexChart
-                    options={{
-                      chart: {
-                        type: "line",
-                        height: 300,
-                        toolbar: { show: false },
-                        zoom: { enabled: false },
-                      },
-                      stroke: {
-                        curve: "smooth",
-                        width: 3,
-                      },
-                      colors: comparisonChartData.series.map((s) => s.color),
-                      xaxis: {
-                        categories: comparisonChartData.months,
-                        labels: {
-                          style: {
-                            fontSize: "12px",
+                {/* Total Sales Comparison */}
+                <div className="col-lg-6 col-xl-6">
+                  <div className="card h-100">
+                    <div className="card-header border-bottom bg-base py-12 px-16">
+                      <h6 className="text-md fw-semibold mb-0">
+                        Total Sales Comparison
+                      </h6>
+                    </div>
+                    <div className="card-body p-16">
+                      <ReactApexChart
+                        options={{
+                          chart: {
+                            type: "bar",
+                            height: 300,
+                            toolbar: { show: false },
                           },
-                        },
-                      },
-                      yaxis: {
-                        title: {
-                          text: "Sales Units",
-                        },
-                        labels: {
-                          formatter: function (val) {
-                            return val.toLocaleString();
+                          plotOptions: {
+                            bar: {
+                              horizontal: false,
+                              columnWidth: "55%",
+                              borderRadius: 4,
+                            },
                           },
-                        },
-                      },
-                      legend: {
-                        position: "top",
-                        horizontalAlign: "right",
-                      },
-                      grid: {
-                        borderColor: "#e7e7e7",
-                        strokeDashArray: 3,
-                      },
-                      tooltip: {
-                        theme: "light",
-                        y: {
-                          formatter: function (val) {
-                            return val.toLocaleString() + " units";
+                          dataLabels: {
+                            enabled: true,
+                            formatter: function (val) {
+                              return val.toLocaleString();
+                            },
                           },
-                        },
-                      },
-                    }}
-                    series={comparisonChartData.series}
-                    type="line"
-                    height={300}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Total Sales Comparison */}
-            <div className="col-lg-6 col-xl-6">
-              <div className="card h-100">
-                <div className="card-header border-bottom bg-base py-12 px-16">
-                  <h6 className="text-md fw-semibold mb-0">
-                    Total Sales Comparison
-                  </h6>
-                </div>
-                <div className="card-body p-16">
-                  <ReactApexChart
-                    options={{
-                      chart: {
-                        type: "bar",
-                        height: 300,
-                        toolbar: { show: false },
-                      },
-                      plotOptions: {
-                        bar: {
-                          horizontal: false,
-                          columnWidth: "55%",
-                          borderRadius: 4,
-                        },
-                      },
-                      dataLabels: {
-                        enabled: true,
-                        formatter: function (val) {
-                          return val.toLocaleString();
-                        },
-                      },
-                      colors: comparisonChartData.series.map((s) => s.color),
-                      xaxis: {
-                        categories: storeComparisonData.map((s) => s.storeName),
-                        labels: {
-                          style: {
-                            fontSize: "12px",
+                          colors: comparisonChartData.series.map(
+                            (s) => s.color
+                          ),
+                          xaxis: {
+                            categories: storeComparisonData.map(
+                              (s) => s.storeName
+                            ),
+                            labels: {
+                              style: {
+                                fontSize: "12px",
+                              },
+                            },
                           },
-                        },
-                      },
-                      yaxis: {
-                        title: {
-                          text: "Sales Units",
-                        },
-                        labels: {
-                          formatter: function (val) {
-                            return val.toLocaleString();
+                          yaxis: {
+                            title: {
+                              text: "Sales Units",
+                            },
+                            labels: {
+                              formatter: function (val) {
+                                return val.toLocaleString();
+                              },
+                            },
                           },
-                        },
-                      },
-                      grid: {
-                        borderColor: "#e7e7e7",
-                        strokeDashArray: 3,
-                      },
-                      tooltip: {
-                        theme: "light",
-                        y: {
-                          formatter: function (val) {
-                            return val.toLocaleString() + " units";
+                          grid: {
+                            borderColor: "#e7e7e7",
+                            strokeDashArray: 3,
                           },
-                        },
-                      },
-                    }}
-                    series={[
-                      {
-                        name: "Total Sales",
-                        data: storeComparisonData.map((s) => s.totalSales),
-                      },
-                    ]}
-                    type="bar"
-                    height={300}
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Detailed Comparison Table */}
-          <div className="row gy-2">
-            <div className="col-12">
-              <div className="card">
-                <div className="card-header border-bottom bg-base py-12 px-16">
-                  <h6 className="text-md fw-semibold mb-0">
-                    Detailed Store Comparison
-                  </h6>
-                </div>
-                <div className="card-body p-16">
-                  <div className="table-responsive">
-                    <table className="table table-hover">
-                      <thead>
-                        <tr>
-                          <th>Store Name</th>
-                          <th className="text-end">Total Sales</th>
-                          <th>Top Category</th>
-                          <th>Top Product</th>
-                          <th className="text-end">Performance %</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {storeComparisonData
-                          .sort((a, b) => b.totalSales - a.totalSales)
-                          .map((store, index) => {
-                            const maxSales = Math.max(
-                              ...storeComparisonData.map((s) => s.totalSales)
-                            );
-                            const performance =
-                              (store.totalSales / maxSales) * 100;
-                            return (
-                              <tr key={store.storeName}>
-                                <td>
-                                  <div className="d-flex align-items-center gap-2">
-                                    <div
-                                      style={{
-                                        width: "12px",
-                                        height: "12px",
-                                        backgroundColor:
-                                          storeColors[
-                                            index % storeColors.length
-                                          ],
-                                        borderRadius: "50%",
-                                      }}
-                                    ></div>
-                                    <span className="fw-semibold">
-                                      {store.storeName}
-                                    </span>
-                                  </div>
-                                </td>
-                                <td className="text-end fw-bold">
-                                  {store.totalSales.toLocaleString()}
-                                </td>
-                                <td>
-                                  <span className="badge bg-info">
-                                    {store.topCategory}
-                                  </span>
-                                </td>
-                                <td>
-                                  <span className="badge bg-success">
-                                    {store.topProduct}
-                                  </span>
-                                </td>
-                                <td className="text-end">
-                                  <div className="d-flex align-items-center justify-content-end gap-2">
-                                    <div
-                                      className="progress"
-                                      style={{ width: "100px", height: "8px" }}
-                                    >
-                                      <div
-                                        className="progress-bar"
-                                        role="progressbar"
-                                        style={{
-                                          width: `${performance}%`,
-                                          backgroundColor:
-                                            storeColors[
-                                              index % storeColors.length
-                                            ],
-                                        }}
-                                      ></div>
-                                    </div>
-                                    <span className="fw-semibold">
-                                      {performance.toFixed(1)}%
-                                    </span>
-                                  </div>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                      </tbody>
-                    </table>
+                          tooltip: {
+                            theme: "light",
+                            y: {
+                              formatter: function (val) {
+                                return val.toLocaleString() + " units";
+                              },
+                            },
+                          },
+                        }}
+                        series={[
+                          {
+                            name: "Total Sales",
+                            data: storeComparisonData.map((s) => s.totalSales),
+                          },
+                        ]}
+                        type="bar"
+                        height={300}
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          </div>
+
+              {/* Detailed Comparison Table */}
+              <div className="row gy-2">
+                <div className="col-12">
+                  <div className="card">
+                    <div className="card-header border-bottom bg-base py-12 px-16">
+                      <h6 className="text-md fw-semibold mb-0">
+                        Detailed Store Comparison
+                      </h6>
+                    </div>
+                    <div className="card-body p-16">
+                      <div className="table-responsive">
+                        <table className="table table-hover">
+                          <thead>
+                            <tr>
+                              <th>Store Name</th>
+                              <th className="text-end">Total Sales</th>
+                              <th>Top Category</th>
+                              <th>Top Product</th>
+                              <th className="text-end">Performance %</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {storeComparisonData
+                              .sort((a, b) => b.totalSales - a.totalSales)
+                              .map((store, index) => {
+                                const maxSales = Math.max(
+                                  ...storeComparisonData.map(
+                                    (s) => s.totalSales
+                                  )
+                                );
+                                const performance =
+                                  (store.totalSales / maxSales) * 100;
+                                return (
+                                  <tr key={store.storeName}>
+                                    <td>
+                                      <div className="d-flex align-items-center gap-2">
+                                        <div
+                                          style={{
+                                            width: "12px",
+                                            height: "12px",
+                                            backgroundColor:
+                                              storeColors[
+                                                index % storeColors.length
+                                              ],
+                                            borderRadius: "50%",
+                                          }}
+                                        ></div>
+                                        <span className="fw-semibold">
+                                          {store.storeName}
+                                        </span>
+                                      </div>
+                                    </td>
+                                    <td className="text-end fw-bold">
+                                      {store.totalSales.toLocaleString()}
+                                    </td>
+                                    <td>
+                                      <span className="badge bg-info">
+                                        {store.topCategory}
+                                      </span>
+                                    </td>
+                                    <td>
+                                      <span className="badge bg-success">
+                                        {store.topProduct}
+                                      </span>
+                                    </td>
+                                    <td className="text-end">
+                                      <div className="d-flex align-items-center justify-content-end gap-2">
+                                        <div
+                                          className="progress"
+                                          style={{
+                                            width: "100px",
+                                            height: "8px",
+                                          }}
+                                        >
+                                          <div
+                                            className="progress-bar"
+                                            role="progressbar"
+                                            style={{
+                                              width: `${performance}%`,
+                                              backgroundColor:
+                                                storeColors[
+                                                  index % storeColors.length
+                                                ],
+                                            }}
+                                          ></div>
+                                        </div>
+                                        <span className="fw-semibold">
+                                          {performance.toFixed(1)}%
+                                        </span>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
         </>
       )}
 
-      {selectedStores.length === 0 && (
+      {selectedStoreSlugs.length === 0 && !isLoading && (
         <div className="card">
           <div className="card-body p-24 text-center">
             <Icon
