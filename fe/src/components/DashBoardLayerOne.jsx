@@ -516,7 +516,7 @@ const DashBoardLayerOne = () => {
                 <option value="monthly">Monthly</option>
                 <option value="weekly">Weekly</option>
                 <option value="daily">Daily</option>
-                <option value="tomorrow">Tomorrow</option>
+                <option value="yesterday">Yesterday</option>
                 <option value="custom">Custom Date Range</option>
               </select>
             </div>

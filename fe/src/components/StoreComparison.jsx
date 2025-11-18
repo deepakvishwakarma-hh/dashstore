@@ -125,11 +125,11 @@ const StoreComparison = () => {
         endDate = new Date(todayDaily);
         endDate.setHours(23, 59, 59);
         break;
-      case "tomorrow":
-        const todayTomorrow = new Date();
-        todayTomorrow.setHours(0, 0, 0, 0);
-        startDate = new Date(todayTomorrow);
-        startDate.setDate(todayTomorrow.getDate() + 1);
+      case "yesterday":
+        const todayYesterday = new Date();
+        todayYesterday.setHours(0, 0, 0, 0);
+        startDate = new Date(todayYesterday);
+        startDate.setDate(todayYesterday.getDate() - 1);
         endDate = new Date(startDate);
         endDate.setHours(23, 59, 59);
         break;
@@ -290,7 +290,7 @@ const StoreComparison = () => {
                 <option value="monthly">Monthly</option>
                 <option value="weekly">Weekly</option>
                 <option value="daily">Daily</option>
-                <option value="tomorrow">Tomorrow</option>
+                <option value="yesterday">Yesterday</option>
                 <option value="custom">Custom Date Range</option>
               </select>
             </div>

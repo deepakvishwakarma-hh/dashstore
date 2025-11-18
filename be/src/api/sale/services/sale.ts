@@ -26,7 +26,7 @@ const FILTER_TYPES = new Set([
     'monthly',
     'weekly',
     'daily',
-    'tomorrow',
+    'yesterday',
     'custom',
     'all',
 ]);
@@ -243,12 +243,12 @@ const buildDateRange = (
         };
     }
 
-    if (filterType === 'tomorrow') {
-        const nextDay = new Date(today);
-        nextDay.setDate(nextDay.getDate() + 1);
+    if (filterType === 'yesterday') {
+        const previousDay = new Date(today);
+        previousDay.setDate(previousDay.getDate() - 1);
         return {
-            startDate: formatFromParts(nextDay.getFullYear(), nextDay.getMonth(), nextDay.getDate()),
-            endDate: formatFromParts(nextDay.getFullYear(), nextDay.getMonth(), nextDay.getDate()),
+            startDate: formatFromParts(previousDay.getFullYear(), previousDay.getMonth(), previousDay.getDate()),
+            endDate: formatFromParts(previousDay.getFullYear(), previousDay.getMonth(), previousDay.getDate()),
         };
     }
 

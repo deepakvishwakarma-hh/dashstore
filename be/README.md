@@ -38,7 +38,7 @@ The `/api/dashboard/sales/overview` endpoint aggregates the `sales`, `stores`, `
 
 - **Method:** `GET`
 - **Query Params (optional):**
-  - `filterType`: `yearly` | `monthly` | `weekly` | `daily` | `tomorrow` | `custom` | `all` (default: `yearly`)
+- `filterType`: `yearly` | `monthly` | `weekly` | `daily` | `yesterday` | `custom` | `all` (default: `yearly`)
   - `year`: numeric year to scope `yearly` / `monthly` data (defaults to the most recent year with data)
   - `month`: zero-based month index for `monthly` filter (defaults to the first month that has data in the selected year)
   - `fromDate` / `toDate`: `YYYY-MM-DD` strings required when `filterType=custom`
