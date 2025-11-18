@@ -8,17 +8,17 @@ export const metadata = {
 };
 
 const Page = async ({ params }) => {
-  const storeName = decodeURIComponent(params.storename);
+  const storeSlug = decodeURIComponent(params.storeslug);
 
   return (
     <>
       {/* MasterLayout */}
       <MasterLayout>
         {/* Breadcrumb */}
-        <Breadcrumb title={`Store: ${storeName}`} />
+        <Breadcrumb title={`Store Dashboard`} />
 
         {/* StoreDashboard */}
-        <StoreDashboard storeName={storeName} />
+        <StoreDashboard storeSlug={storeSlug} />
       </MasterLayout>
     </>
   );

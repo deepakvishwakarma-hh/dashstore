@@ -18,12 +18,12 @@ export default factories.createCoreController('api::sale.sale', ({ strapi }) => 
 
     async storeDashboard(ctx) {
         try {
-            const storeName = ctx.params.storeName || ctx.request.query.storeName;
-            if (!storeName) {
-                ctx.throw(400, 'Store name is required');
+            const storeSlug = ctx.params.storeSlug || ctx.request.query.storeSlug;
+            if (!storeSlug) {
+                ctx.throw(400, 'Store slug is required');
             }
-            const decodedStoreName = decodeURIComponent(storeName);
-            const data = await strapi.service('api::sale.sale').getStoreDashboardOverview(decodedStoreName, ctx.request.query);
+            const decodedStoreSlug = decodeURIComponent(storeSlug);
+            const data = await strapi.service('api::sale.sale').getStoreDashboardOverview(decodedStoreSlug, ctx.request.query);
             ctx.body = data;
         } catch (error: any) {
             strapi.log.error('Store dashboard error', error);

@@ -15,7 +15,7 @@ export default {
         },
         {
             method: 'GET',
-            path: '/dashboard/sales/store/:storeName',
+            path: '/dashboard/sales/store/:storeSlug',
             handler: 'api::sale.sale.storeDashboard',
             config: {
                 policies: [],

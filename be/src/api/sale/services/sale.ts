@@ -62,6 +62,7 @@ type SalesRow = {
 type DetailedSalesRow = SalesRow & {
     store_id: number | null;
     store_name: string | null;
+    store_slug: string | null;
     category_id: number | null;
     category_name: string | null;
     product_id: number | null;
@@ -71,12 +72,14 @@ type DetailedSalesRow = SalesRow & {
 type StoreTotalsRow = {
     id: number | null;
     name: string | null;
+    slug: string | null;
     totalSales: number;
 };
 
 type StorePerformance = {
     storeId: number | null;
     storename: string;
+    storeSlug: string | null;
     totalSales: number;
     categories: Map<string, number>;
     products: Map<string, number>;
@@ -504,6 +507,7 @@ const buildStorePerformance = (rows: DetailedSalesRow[]) => {
             storeMap.set(storeKey, {
                 storeId: row.store_id ?? null,
                 storename: row.store_name ?? 'Unknown Store',
+                storeSlug: row.store_slug ?? null,
                 totalSales: 0,
                 categories: new Map(),
                 products: new Map(),
@@ -578,19 +582,20 @@ export default factories.createCoreService('api::sale.sale', ({ strapi }) => ({
             knex('sales as s')
                 .leftJoin('sales_store_lnk as storeLink', 'storeLink.sale_id', 's.id')
                 .leftJoin('stores as store', 'storeLink.store_id', 'store.id')
-                .select('store.id as id', 'store.name as name')
+                .select('store.id as id', 'store.name as name', 'store.slug as slug')
                 .sum({ totalSales: 's.qty' })
-                .groupBy('store.id', 'store.name'),
+                .groupBy('store.id', 'store.name', 'store.slug'),
         ]);
 
         const metadata = buildMetadata(allSalesRows);
         const normalized = normalizeParams(rawParams, metadata);
 
         const storesMetadata = storesTotalsRows
-            .filter((row): row is StoreTotalsRow & { id: number; name: string } => row.id !== null && !!row.name)
+            .filter((row): row is StoreTotalsRow & { id: number; name: string; slug: string | null } => row.id !== null && !!row.name)
             .map((row) => ({
                 id: row.id,
                 name: row.name,
+                slug: row.slug,
                 totalSales: toNumber(row.totalSales),
             }))
             .sort((a, b) => b.totalSales - a.totalSales);
@@ -608,6 +613,7 @@ export default factories.createCoreService('api::sale.sale', ({ strapi }) => ({
                 's.qty',
                 'storeLink.store_id as store_id',
                 'store.name as store_name',
+                'store.slug as store_slug',
                 'categoryLink.category_id as category_id',
                 'category.name as category_name',
                 'productLink.product_id as product_id',
@@ -680,12 +686,14 @@ export default factories.createCoreService('api::sale.sale', ({ strapi }) => ({
         const topStores = performance.storePerformance.slice(0, 10).map((store) => ({
             storeId: store.storeId,
             storename: store.storename,
+            storeSlug: store.storeSlug,
             sales: store.totalSales,
         }));
 
         const storeRanking = performance.storePerformance.slice(0, 10).map((store) => ({
             storeId: store.storeId,
             storename: store.storename,
+            storeSlug: store.storeSlug,
             totalSales: store.totalSales,
             topCategory: buildRankings(store.categories, 1)[0]?.label ?? 'N/A',
             topProduct: buildRankings(store.products, 1)[0]?.label ?? 'N/A',
@@ -763,16 +771,16 @@ export default factories.createCoreService('api::sale.sale', ({ strapi }) => ({
         return response;
     },
 
-    async getStoreDashboardOverview(storeName: string, rawParams: Record<string, any> = {}) {
+    async getStoreDashboardOverview(storeSlug: string, rawParams: Record<string, any> = {}) {
         const knex = strapi.db.connection;
 
-        // First, find the store by name to get its ID
+        // First, find the store by slug to get its ID
         const store = await knex('stores')
-            .where('name', storeName)
+            .where('slug', storeSlug)
             .first();
 
         if (!store) {
-            throw new Error(`Store "${storeName}" not found`);
+            throw new Error(`Store with slug "${storeSlug}" not found`);
         }
 
         const storeId = store.id;
@@ -872,6 +880,7 @@ export default factories.createCoreService('api::sale.sale', ({ strapi }) => ({
             store: {
                 id: store.id,
                 name: store.name,
+                slug: store.slug,
             },
             filter: {
                 type: normalized.filterType,

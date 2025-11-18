@@ -1140,7 +1140,9 @@ const DashBoardLayerOne = () => {
                         <td className="fw-semibold">
                           <Link
                             href={`/store/${encodeURIComponent(
-                              store.storename || "unknown-store"
+                              store.storeSlug ||
+                                store.storename ||
+                                "unknown-store"
                             )}`}
                             className="text-primary text-decoration-none"
                           >

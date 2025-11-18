@@ -8,7 +8,7 @@ const ReactApexChart = dynamic(() => import("react-apexcharts"), {
   ssr: false,
 });
 
-const StoreDashboard = ({ storeName }) => {
+const StoreDashboard = ({ storeSlug }) => {
   const [filterType, setFilterType] = useState("yearly");
   const [selectedYear, setSelectedYear] = useState("");
   const [selectedMonth, setSelectedMonth] = useState("");
@@ -52,8 +52,8 @@ const StoreDashboard = ({ storeName }) => {
     isError,
     error,
     refetch,
-  } = useStoreDashboard(storeName, queryParams, {
-    enabled: !isCustomRangeIncomplete && !!storeName,
+  } = useStoreDashboard(storeSlug, queryParams, {
+    enabled: !isCustomRangeIncomplete && !!storeSlug,
   });
 
   const resolvedFilterYear = dashboardData?.filter?.year;
@@ -176,7 +176,7 @@ const StoreDashboard = ({ storeName }) => {
     error?.message ||
     null;
 
-  const displayStoreName = storeInfo.name || storeName;
+  const displayStoreName = storeInfo.name || storeSlug;
 
   // Chart options
   const salesStatsChartOptions = useMemo(

@@ -3,24 +3,24 @@
 import { useQuery } from "@tanstack/react-query";
 import strapiApi from "@/lib/strapi";
 
-export function useStoreDashboard(storeName, params = {}, options = {}) {
+export function useStoreDashboard(storeSlug, params = {}, options = {}) {
   return useQuery({
-    queryKey: ["store-dashboard", storeName, params],
+    queryKey: ["store-dashboard", storeSlug, params],
     queryFn: async ({ queryKey }) => {
-      const [, store, queryParams] = queryKey;
-      if (!store) {
-        throw new Error("Store name is required");
+      const [, slug, queryParams] = queryKey;
+      if (!slug) {
+        throw new Error("Store slug is required");
       }
-      const encodedStoreName = encodeURIComponent(store);
+      const encodedStoreSlug = encodeURIComponent(slug);
       const response = await strapiApi.get(
-        `/dashboard/sales/store/${encodedStoreName}`,
+        `/dashboard/sales/store/${encodedStoreSlug}`,
         {
           params: queryParams,
         }
       );
       return response.data;
     },
-    enabled: !!storeName,
+    enabled: !!storeSlug,
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
     refetchOnWindowFocus: false,
