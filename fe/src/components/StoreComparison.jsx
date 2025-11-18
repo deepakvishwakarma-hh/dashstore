@@ -121,16 +121,20 @@ const StoreComparison = () => {
     });
   };
 
-  const storeOptions = useMemo(
-    () =>
-      availableStores
-        .filter((store) => store.slug)
-        .map((store) => ({
-          slug: store.slug,
-          name: store.name,
-        })),
-    [availableStores]
-  );
+  const storeOptions = useMemo(() => {
+    const seen = new Set();
+    return availableStores
+      .filter((store) => {
+        if (!store.slug) return false;
+        if (seen.has(store.slug)) return false;
+        seen.add(store.slug);
+        return true;
+      })
+      .map((store) => ({
+        slug: store.slug,
+        name: store.name,
+      }));
+  }, [availableStores]);
 
   const storeColors = [
     "#487FFF",
@@ -313,9 +317,9 @@ const StoreComparison = () => {
             </div>
           ) : (
             <div className="row g-2">
-              {storeOptions.map((store) => (
+              {storeOptions.map((store, index) => (
                 <div
-                  key={store.slug}
+                  key={`${store.slug}-${index}`}
                   className="col-lg-2 col-md-2 col-sm-3 col-4"
                 >
                   <div
