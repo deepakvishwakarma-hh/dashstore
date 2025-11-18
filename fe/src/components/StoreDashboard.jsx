@@ -1,10 +1,9 @@
 "use client";
 import React, { useState, useMemo, useEffect } from "react";
-import salesData from "@/data/sales.json";
-import configData from "@/data/config.json";
 import { Icon } from "@iconify/react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
+import { useStoreDashboard } from "@/hook/useStoreDashboard";
 const ReactApexChart = dynamic(() => import("react-apexcharts"), {
   ssr: false,
 });
@@ -16,390 +15,274 @@ const StoreDashboard = ({ storeName }) => {
   const [customFromDate, setCustomFromDate] = useState("");
   const [customToDate, setCustomToDate] = useState("");
 
-  // Extract unique years and months from data (filtered by store)
-  const availableYears = useMemo(() => {
-    const years = new Set();
-    salesData
-      .filter((item) => item.storename === storeName)
-      .forEach((item) => {
-        const year = new Date(item.date).getFullYear();
-        years.add(year);
-      });
-    return Array.from(years).sort((a, b) => b - a);
-  }, [storeName]);
+  const queryParams = useMemo(() => {
+    const params = {
+      filterType,
+    };
 
-  const availableMonths = useMemo(() => {
-    const months = new Set();
-    salesData
-      .filter((item) => item.storename === storeName)
-      .forEach((item) => {
-        const date = new Date(item.date);
-        const year = date.getFullYear();
-        const month = date.getMonth();
-        if (selectedYear && year === parseInt(selectedYear)) {
-          months.add(month);
-        } else if (!selectedYear) {
-          months.add(month);
-        }
-      });
-    return Array.from(months).sort((a, b) => a - b);
-  }, [storeName, selectedYear]);
-
-  // Set default year and month on mount
-  useEffect(() => {
-    if (availableYears.length > 0 && !selectedYear) {
-      setSelectedYear(availableYears[0].toString());
+    if ((filterType === "yearly" || filterType === "monthly") && selectedYear) {
+      const yearAsNumber = parseInt(selectedYear, 10);
+      if (!Number.isNaN(yearAsNumber)) {
+        params.year = yearAsNumber;
+      }
     }
-  }, [availableYears, selectedYear]);
 
+    if (filterType === "monthly" && selectedMonth) {
+      const monthAsNumber = parseInt(selectedMonth, 10);
+      if (!Number.isNaN(monthAsNumber)) {
+        params.month = monthAsNumber;
+      }
+    }
+
+    if (filterType === "custom" && customFromDate && customToDate) {
+      params.fromDate = customFromDate;
+      params.toDate = customToDate;
+    }
+
+    return params;
+  }, [filterType, selectedYear, selectedMonth, customFromDate, customToDate]);
+
+  const isCustomRangeIncomplete =
+    filterType === "custom" && (!customFromDate || !customToDate);
+
+  const {
+    data: dashboardData,
+    isLoading,
+    isFetching,
+    isError,
+    error,
+    refetch,
+  } = useStoreDashboard(storeName, queryParams, {
+    enabled: !isCustomRangeIncomplete && !!storeName,
+  });
+
+  const resolvedFilterYear = dashboardData?.filter?.year;
   useEffect(() => {
     if (
-      availableMonths.length > 0 &&
-      !selectedMonth &&
-      filterType === "monthly"
+      typeof resolvedFilterYear === "number" &&
+      resolvedFilterYear.toString() !== selectedYear
     ) {
-      setSelectedMonth(availableMonths[0].toString());
+      setSelectedYear(resolvedFilterYear.toString());
     }
-  }, [availableMonths, selectedMonth, filterType]);
+  }, [resolvedFilterYear, selectedYear]);
 
-  // Date filtering logic
-  const getFilteredData = () => {
-    let startDate, endDate;
+  const resolvedFilterMonth = dashboardData?.filter?.month;
+  useEffect(() => {
+    if (
+      filterType === "monthly" &&
+      typeof resolvedFilterMonth === "number" &&
+      resolvedFilterMonth.toString() !== selectedMonth
+    ) {
+      setSelectedMonth(resolvedFilterMonth.toString());
+    }
+  }, [filterType, resolvedFilterMonth, selectedMonth]);
 
-    switch (filterType) {
-      case "yearly":
-        if (selectedYear) {
-          const year = parseInt(selectedYear);
-          startDate = new Date(year, 0, 1);
-          endDate = new Date(year, 11, 31, 23, 59, 59);
-        } else {
-          return salesData.filter((item) => item.storename === storeName);
-        }
-        break;
-      case "monthly":
-        if (selectedYear && selectedMonth) {
-          const year = parseInt(selectedYear);
-          const month = parseInt(selectedMonth);
-          startDate = new Date(year, month, 1);
-          endDate = new Date(year, month + 1, 0, 23, 59, 59);
-        } else {
-          return salesData.filter((item) => item.storename === storeName);
-        }
-        break;
-      case "weekly":
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const dayOfWeek = today.getDay();
-        startDate = new Date(today);
-        startDate.setDate(today.getDate() - dayOfWeek);
-        endDate = new Date(startDate);
-        endDate.setDate(startDate.getDate() + 6);
-        endDate.setHours(23, 59, 59);
-        break;
-      case "daily":
-        const todayDaily = new Date();
-        todayDaily.setHours(0, 0, 0, 0);
-        startDate = new Date(todayDaily);
-        endDate = new Date(todayDaily);
-        endDate.setHours(23, 59, 59);
-        break;
-      case "tomorrow":
-        const todayTomorrow = new Date();
-        todayTomorrow.setHours(0, 0, 0, 0);
-        startDate = new Date(todayTomorrow);
-        startDate.setDate(todayTomorrow.getDate() + 1);
-        endDate = new Date(startDate);
-        endDate.setHours(23, 59, 59);
-        break;
-      case "custom":
-        if (customFromDate && customToDate) {
-          startDate = new Date(customFromDate);
-          endDate = new Date(customToDate);
-          endDate.setHours(23, 59, 59);
-        } else {
-          return salesData.filter((item) => item.storename === storeName);
-        }
-        break;
-      default:
-        return salesData.filter((item) => item.storename === storeName);
+  const metadata = dashboardData?.metadata ?? {};
+  const availableYears = metadata.availableYears ?? [];
+  const availableMonthsByYear = metadata.availableMonthsByYear ?? {};
+  const availableMonths = useMemo(() => {
+    if (!selectedYear) {
+      return [];
     }
 
-    return salesData.filter((item) => {
-      const itemDate = new Date(item.date);
-      return (
-        item.storename === storeName &&
-        itemDate >= startDate &&
-        itemDate <= endDate
-      );
-    });
-  };
+    return (
+      availableMonthsByYear[selectedYear] ??
+      availableMonthsByYear[Number(selectedYear)] ??
+      []
+    );
+  }, [availableMonthsByYear, selectedYear]);
 
-  const filteredData = useMemo(
-    () => getFilteredData(),
-    [
-      storeName,
-      filterType,
-      selectedYear,
-      selectedMonth,
-      customFromDate,
-      customToDate,
-    ]
+  const totals = dashboardData?.totals ?? {};
+  const highlights = dashboardData?.highlights ?? {};
+  const charts = dashboardData?.charts ?? {};
+  const storeInfo = dashboardData?.store ?? {};
+
+  const stats = useMemo(
+    () => ({
+      totalQuantity: totals.totalQuantity ?? 0,
+      topCategories: highlights.topCategories ?? [],
+      topProducts: highlights.topProducts ?? [],
+    }),
+    [totals, highlights]
   );
 
-  // Calculate statistics
-  const stats = useMemo(() => {
-    const totalQuantity = filteredData.reduce(
-      (sum, item) => sum + item.sale,
-      0
-    );
-
-    // Top categories
-    const categorySales = {};
-    filteredData.forEach((item) => {
-      categorySales[item.category] =
-        (categorySales[item.category] || 0) + item.sale;
-    });
-    const topCategories = Object.entries(categorySales)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 3)
-      .map(([category, sales]) => ({ category, sales }));
-
-    // Top products
-    const productSales = {};
-    filteredData.forEach((item) => {
-      productSales[item.product] =
-        (productSales[item.product] || 0) + item.sale;
-    });
-    const topProducts = Object.entries(productSales)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 3)
-      .map(([product, sales]) => ({ product, sales }));
-
-    return {
-      totalQuantity,
-      topCategories,
-      topProducts,
-    };
-  }, [filteredData]);
-
-  // Sales stats overview data
   const salesStatsData = useMemo(() => {
-    const dateGroups = {};
-
-    filteredData.forEach((item) => {
-      const date = item.date;
-      if (!dateGroups[date]) {
-        dateGroups[date] = 0;
-      }
-      dateGroups[date] += item.sale;
-    });
-
-    const sortedDates = Object.keys(dateGroups).sort();
-    return {
-      dates: sortedDates,
-      values: sortedDates.map((date) => dateGroups[date]),
-    };
-  }, [filteredData]);
-
-  // Category distribution data
-  const categoryDistribution = useMemo(() => {
-    const categorySales = {};
-    filteredData.forEach((item) => {
-      categorySales[item.category] =
-        (categorySales[item.category] || 0) + item.sale;
-    });
-
-    return {
-      categories: Object.keys(categorySales),
-      values: Object.values(categorySales),
-    };
-  }, [filteredData]);
-
-  // Top products by sales
-  const topProductsBySales = useMemo(() => {
-    const productSales = {};
-    filteredData.forEach((item) => {
-      productSales[item.product] =
-        (productSales[item.product] || 0) + item.sale;
-    });
-
-    return Object.entries(productSales)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 10)
-      .map(([product, sales]) => ({ product, sales }));
-  }, [filteredData]);
-
-  // Product distribution data
-  const productDistribution = useMemo(() => {
-    const productSales = {};
-    filteredData.forEach((item) => {
-      productSales[item.product] =
-        (productSales[item.product] || 0) + item.sale;
-    });
-
-    return {
-      products: Object.keys(productSales),
-      values: Object.values(productSales),
-    };
-  }, [filteredData]);
-
-  // Calculate dynamic target
-  const currentTarget = useMemo(() => {
-    if (filteredData.length === 0 || stats.totalQuantity === 0) return 0;
-
-    const multiplier = 1.8;
-    const calculatedTarget = Math.ceil(stats.totalQuantity * multiplier);
-    const roundedTarget = Math.max(
-      1000,
-      Math.ceil(calculatedTarget / 1000) * 1000
-    );
-
-    return roundedTarget;
-  }, [filteredData, stats.totalQuantity]);
-
-  // Calculate target progress
-  const targetProgress = useMemo(() => {
-    if (currentTarget === 0) return 0;
-    return Math.min((stats.totalQuantity / currentTarget) * 100, 100);
-  }, [stats.totalQuantity, currentTarget]);
-
-  // Calculate remaining target
-  const remainingTarget = useMemo(() => {
-    return Math.max(currentTarget - stats.totalQuantity, 0);
-  }, [currentTarget, stats.totalQuantity]);
-
-  // Calculate today's sales
-  const todaySales = useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const todayStr = today.toISOString().split("T")[0];
-    return filteredData
-      .filter((item) => item.date === todayStr)
-      .reduce((sum, item) => sum + item.sale, 0);
-  }, [filteredData]);
-
-  // Calculate previous period sales for comparison
-  const previousPeriodSales = useMemo(() => {
-    let startDate, endDate;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    if (filterType === "yearly" && selectedYear) {
-      const year = parseInt(selectedYear);
-      startDate = new Date(year - 1, 0, 1);
-      endDate = new Date(year - 1, 11, 31, 23, 59, 59);
-    } else if (filterType === "monthly" && selectedYear && selectedMonth) {
-      const year = parseInt(selectedYear);
-      const month = parseInt(selectedMonth);
-      startDate = new Date(year, month - 1, 1);
-      endDate = new Date(year, month, 0, 23, 59, 59);
-    } else {
-      return 0;
+    if (!charts.salesStats) {
+      return {
+        dates: [],
+        values: [],
+        series: [],
+        isMultipleSeries: false,
+      };
     }
 
-    return salesData
-      .filter((item) => {
-        const itemDate = new Date(item.date);
-        return (
-          item.storename === storeName &&
-          itemDate >= startDate &&
-          itemDate <= endDate
-        );
-      })
-      .reduce((sum, item) => sum + item.sale, 0);
-  }, [storeName, filterType, selectedYear, selectedMonth]);
-
-  // Calculate percentage change
-  const percentageChange = useMemo(() => {
-    if (previousPeriodSales === 0) return 0;
-    return (
-      ((stats.totalQuantity - previousPeriodSales) / previousPeriodSales) * 100
-    );
-  }, [stats.totalQuantity, previousPeriodSales]);
-
-  // Monthly sales data for line chart
-  const monthlySalesData = useMemo(() => {
-    const monthlyData = {};
-    const monthNames = [
-      "Jan",
-      "Feb",
-      "Mar",
-      "Apr",
-      "May",
-      "Jun",
-      "Jul",
-      "Aug",
-      "Sep",
-      "Oct",
-      "Nov",
-      "Dec",
-    ];
-
-    filteredData.forEach((item) => {
-      const date = new Date(item.date);
-      const monthKey = `${monthNames[date.getMonth()]}`;
-      if (!monthlyData[monthKey]) {
-        monthlyData[monthKey] = 0;
-      }
-      monthlyData[monthKey] += item.sale;
-    });
-
-    const sortedMonths = Object.keys(monthlyData).sort((a, b) => {
-      return monthNames.indexOf(a) - monthNames.indexOf(b);
-    });
+    const labels = charts.salesStats.labels ?? [];
+    const series = charts.salesStats.series ?? [];
+    const isMultipleSeries =
+      charts.salesStats.isMultipleSeries ?? series.length > 1;
 
     return {
-      months: sortedMonths,
-      sales: sortedMonths.map((month) => monthlyData[month] || 0),
+      dates: labels,
+      values:
+        !isMultipleSeries && series.length > 0 ? series[0].data ?? [] : [],
+      series,
+      isMultipleSeries,
     };
-  }, [filteredData]);
+  }, [charts.salesStats]);
+
+  const categoryDistribution = useMemo(() => {
+    if (!charts.categoryDistribution) {
+      return {
+        categories: [],
+        values: [],
+      };
+    }
+
+    return {
+      categories: charts.categoryDistribution.labels ?? [],
+      values: charts.categoryDistribution.values ?? [],
+    };
+  }, [charts.categoryDistribution]);
+
+  const productDistribution = useMemo(() => {
+    if (!charts.productDistribution) {
+      return {
+        products: [],
+        values: [],
+      };
+    }
+
+    return {
+      products: charts.productDistribution.labels ?? [],
+      values: charts.productDistribution.values ?? [],
+    };
+  }, [charts.productDistribution]);
+
+  const topProductsBySales = charts.topProducts ?? [];
+  const monthlySalesData = charts.monthlySales ?? { months: [], sales: [] };
+
+  const currentTarget = totals.currentTarget ?? 0;
+  const targetProgress = Math.min(Math.max(totals.targetProgress ?? 0, 0), 100);
+  const remainingTarget =
+    totals.remainingTarget ?? Math.max(currentTarget - stats.totalQuantity, 0);
+  const todaySales = totals.todaySales ?? 0;
+  const percentageChange = totals.percentageChange ?? 0;
+  const previousPeriodSales = totals.previousPeriodSales ?? 0;
+
+  const isInitialLoading = isLoading && !dashboardData;
+  const errorMessage =
+    error?.response?.data?.error?.message ||
+    error?.response?.data?.error ||
+    error?.message ||
+    null;
+
+  const displayStoreName = storeInfo.name || storeName;
 
   // Chart options
-  const salesStatsChartOptions = {
-    chart: {
-      type: "area",
-      height: 300,
-      toolbar: { show: false },
-      zoom: { enabled: false },
-    },
-    dataLabels: { enabled: false },
-    stroke: { curve: "smooth", width: 3, colors: ["#487FFF"] },
-    fill: {
-      type: "gradient",
-      gradient: {
-        shadeIntensity: 1,
-        inverseColors: false,
-        opacityFrom: 0.3,
-        opacityTo: 0.1,
-        stops: [0, 90, 100],
+  const salesStatsChartOptions = useMemo(
+    () => ({
+      chart: {
+        type:
+          filterType === "yearly" || filterType === "monthly" ? "line" : "area",
+        height: 300,
+        toolbar: { show: false },
+        zoom: { enabled: false },
       },
-    },
-    xaxis: { categories: salesStatsData.dates },
-    yaxis: { title: { text: "Sales" } },
-    colors: ["#487FFF"],
-    grid: {
-      borderColor: "#e7e7e7",
-      strokeDashArray: 3,
+      dataLabels: { enabled: false },
+      markers: {
+        size: filterType === "yearly" || filterType === "monthly" ? 4 : 0,
+        hover: {
+          size: 6,
+        },
+      },
+      stroke: {
+        curve: "smooth",
+        width: 3,
+        colors:
+          filterType === "yearly" || filterType === "monthly"
+            ? undefined
+            : ["#487FFF"],
+      },
+      fill:
+        filterType === "yearly" || filterType === "monthly"
+          ? {
+              type: "solid",
+              opacity: 0.05,
+            }
+          : {
+              type: "gradient",
+              gradient: {
+                shadeIntensity: 1,
+                inverseColors: false,
+                opacityFrom: 0.3,
+                opacityTo: 0.1,
+                stops: [0, 90, 100],
+              },
+            },
       xaxis: {
-        lines: {
-          show: true,
+        categories: salesStatsData.dates,
+        title: {
+          text:
+            filterType === "yearly"
+              ? "Month"
+              : filterType === "monthly"
+              ? "Week"
+              : "Date",
         },
       },
-      yaxis: {
-        lines: {
-          show: true,
+      yaxis: { title: { text: "Sales" } },
+      colors:
+        filterType === "yearly" || filterType === "monthly"
+          ? [
+              "#487FFF",
+              "#10B981",
+              "#F59E0B",
+              "#EF4444",
+              "#8B5CF6",
+              "#EC4899",
+              "#06B6D4",
+              "#84CC16",
+              "#F97316",
+              "#6366F1",
+              "#14B8A6",
+              "#A855F7",
+            ]
+          : ["#487FFF"],
+      grid: {
+        borderColor: "#e7e7e7",
+        strokeDashArray: 3,
+        xaxis: {
+          lines: {
+            show: true,
+          },
+        },
+        yaxis: {
+          lines: {
+            show: true,
+          },
         },
       },
-    },
-    tooltip: { theme: "light" },
-  };
+      tooltip: { theme: "light" },
+      legend: {
+        show: filterType === "yearly" || filterType === "monthly",
+        position: "top",
+        horizontalAlign: "right",
+      },
+    }),
+    [salesStatsData.dates, filterType]
+  );
 
-  const salesStatsChartSeries = [
-    {
-      name: "Sales",
-      data: salesStatsData.values,
-    },
-  ];
+  const salesStatsChartSeries = useMemo(() => {
+    if (salesStatsData.series && salesStatsData.series.length > 0) {
+      return salesStatsData.series;
+    }
+    return [
+      {
+        name: "Sales",
+        data: salesStatsData.values || [],
+      },
+    ];
+  }, [salesStatsData]);
 
   const categoryPieChartOptions = {
     chart: { type: "donut", height: 300 },
@@ -411,7 +294,6 @@ const StoreDashboard = ({ storeName }) => {
 
   const categoryPieChartSeries = categoryDistribution.values;
 
-  // Product Distribution Chart
   const productPieChartOptions = {
     chart: { type: "donut", height: 350 },
     labels: productDistribution.products,
@@ -433,7 +315,6 @@ const StoreDashboard = ({ storeName }) => {
 
   const productPieChartSeries = productDistribution.values;
 
-  // Top Products Bar Chart
   const topProductsBarChartOptions = {
     chart: {
       type: "bar",
@@ -506,6 +387,40 @@ const StoreDashboard = ({ storeName }) => {
     },
   ];
 
+  if (isInitialLoading) {
+    return (
+      <div
+        className="d-flex justify-content-center align-items-center"
+        style={{ minHeight: "400px" }}
+      >
+        <div className="text-center">
+          <div className="spinner-border text-primary" role="status">
+            <span className="visually-hidden">Loading...</span>
+          </div>
+          <p className="mt-3 text-primary-light">
+            Loading store dashboard data...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="alert alert-danger" role="alert">
+        <h4 className="alert-heading">Failed to load dashboard data</h4>
+        <p>
+          {errorMessage ||
+            "An error occurred while fetching store dashboard data."}
+        </p>
+        <hr />
+        <button className="btn btn-danger" onClick={() => refetch()}>
+          Retry
+        </button>
+      </div>
+    );
+  }
+
   return (
     <>
       {/* Store Info Header */}
@@ -520,7 +435,7 @@ const StoreDashboard = ({ storeName }) => {
                 />
               </div>
               <div>
-                <h4 className="fw-bold mb-1">{storeName}</h4>
+                <h4 className="fw-bold mb-1">{displayStoreName}</h4>
                 <p className="text-primary-light mb-0">Store Dashboard</p>
               </div>
             </div>
@@ -651,7 +566,37 @@ const StoreDashboard = ({ storeName }) => {
                 </div>
               </>
             )}
+            <div className="col-md-2">
+              <label className="form-label fw-semibold d-block">&nbsp;</label>
+              <button
+                className="btn btn-primary w-100"
+                onClick={() => refetch()}
+                disabled={isCustomRangeIncomplete || isFetching}
+              >
+                {isFetching ? (
+                  <>
+                    <span
+                      className="spinner-border spinner-border-sm me-2"
+                      role="status"
+                      aria-hidden="true"
+                    ></span>
+                    Loading...
+                  </>
+                ) : (
+                  <>
+                    <Icon icon="solar:filter-bold" className="me-2" />
+                    Apply Filter
+                  </>
+                )}
+              </button>
+            </div>
           </div>
+          {isCustomRangeIncomplete && (
+            <div className="alert alert-warning mt-3 mb-0" role="alert">
+              Please select both "From Date" and "To Date" for custom date
+              range.
+            </div>
+          )}
         </div>
       </div>
 
@@ -741,7 +686,7 @@ const StoreDashboard = ({ storeName }) => {
                   <p className="fw-medium text-primary-light mb-1">
                     Store Name
                   </p>
-                  <h6 className="mb-0">{storeName}</h6>
+                  <h6 className="mb-0">{displayStoreName}</h6>
                 </div>
                 <div className="w-50-px h-50-px bg-purple rounded-circle d-flex justify-content-center align-items-center">
                   <Icon
@@ -762,12 +707,22 @@ const StoreDashboard = ({ storeName }) => {
           <div className="card h-100">
             <div className="card-header border-bottom bg-base py-16 px-24">
               <h6 className="text-lg fw-semibold mb-0">Sales Stats Overview</h6>
+              {filterType === "yearly" && (
+                <p className="text-sm text-primary-light mb-0 mt-1">
+                  Showing all years with monthly breakdown
+                </p>
+              )}
+              {filterType === "monthly" && selectedYear && (
+                <p className="text-sm text-primary-light mb-0 mt-1">
+                  Showing all months with weekly breakdown for {selectedYear}
+                </p>
+              )}
             </div>
             <div className="card-body p-24">
               <ReactApexChart
                 options={salesStatsChartOptions}
                 series={salesStatsChartSeries}
-                type="area"
+                type={salesStatsChartOptions.chart.type}
                 height={300}
               />
             </div>

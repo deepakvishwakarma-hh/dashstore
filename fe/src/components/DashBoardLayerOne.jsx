@@ -1,10 +1,9 @@
 "use client";
 import React, { useState, useMemo, useEffect } from "react";
-import salesData from "@/data/sales.json";
-import configData from "@/data/config.json";
 import { Icon } from "@iconify/react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
+import { useDashboardOverview } from "@/hook/useDashboardOverview";
 const ReactApexChart = dynamic(() => import("react-apexcharts"), {
   ssr: false,
 });
@@ -16,492 +15,154 @@ const DashBoardLayerOne = () => {
   const [customFromDate, setCustomFromDate] = useState("");
   const [customToDate, setCustomToDate] = useState("");
 
-  // Extract unique years and months from data
-  const availableYears = useMemo(() => {
-    const years = new Set();
-    salesData.forEach((item) => {
-      const year = new Date(item.date).getFullYear();
-      years.add(year);
-    });
-    return Array.from(years).sort((a, b) => b - a); // Sort descending
-  }, []);
+  const queryParams = useMemo(() => {
+    const params = {
+      filterType,
+    };
 
-  const availableMonths = useMemo(() => {
-    const months = new Set();
-    salesData.forEach((item) => {
-      const date = new Date(item.date);
-      const year = date.getFullYear();
-      const month = date.getMonth();
-      if (selectedYear && year === parseInt(selectedYear)) {
-        months.add(month);
-      } else if (!selectedYear) {
-        months.add(month);
+    if ((filterType === "yearly" || filterType === "monthly") && selectedYear) {
+      const yearAsNumber = parseInt(selectedYear, 10);
+      if (!Number.isNaN(yearAsNumber)) {
+        params.year = yearAsNumber;
       }
-    });
-    return Array.from(months).sort((a, b) => a - b);
-  }, [selectedYear]);
-
-  // Set default year and month on mount
-  useEffect(() => {
-    if (availableYears.length > 0 && !selectedYear) {
-      setSelectedYear(availableYears[0].toString());
     }
-  }, [availableYears, selectedYear]);
 
+    if (filterType === "monthly" && selectedMonth) {
+      const monthAsNumber = parseInt(selectedMonth, 10);
+      if (!Number.isNaN(monthAsNumber)) {
+        params.month = monthAsNumber;
+      }
+    }
+
+    if (filterType === "custom" && customFromDate && customToDate) {
+      params.fromDate = customFromDate;
+      params.toDate = customToDate;
+    }
+
+    return params;
+  }, [filterType, selectedYear, selectedMonth, customFromDate, customToDate]);
+
+  const isCustomRangeIncomplete =
+    filterType === "custom" && (!customFromDate || !customToDate);
+
+  const {
+    data: dashboardData,
+    isLoading,
+    isFetching,
+    isError,
+    error,
+    refetch,
+  } = useDashboardOverview(queryParams, {
+    enabled: !isCustomRangeIncomplete,
+  });
+
+  const resolvedFilterYear = dashboardData?.filter?.year;
   useEffect(() => {
     if (
-      availableMonths.length > 0 &&
-      !selectedMonth &&
-      filterType === "monthly"
+      typeof resolvedFilterYear === "number" &&
+      resolvedFilterYear.toString() !== selectedYear
     ) {
-      setSelectedMonth(availableMonths[0].toString());
+      setSelectedYear(resolvedFilterYear.toString());
     }
-  }, [availableMonths, selectedMonth, filterType]);
+  }, [resolvedFilterYear, selectedYear]);
 
-  // Date filtering logic
-  const getFilteredData = () => {
-    let startDate, endDate;
+  const resolvedFilterMonth = dashboardData?.filter?.month;
+  useEffect(() => {
+    if (
+      filterType === "monthly" &&
+      typeof resolvedFilterMonth === "number" &&
+      resolvedFilterMonth.toString() !== selectedMonth
+    ) {
+      setSelectedMonth(resolvedFilterMonth.toString());
+    }
+  }, [filterType, resolvedFilterMonth, selectedMonth]);
 
-    switch (filterType) {
-      case "yearly":
-        if (selectedYear) {
-          const year = parseInt(selectedYear);
-          startDate = new Date(year, 0, 1);
-          endDate = new Date(year, 11, 31, 23, 59, 59);
-        } else {
-          return salesData;
-        }
-        break;
-      case "monthly":
-        if (selectedYear && selectedMonth) {
-          const year = parseInt(selectedYear);
-          const month = parseInt(selectedMonth);
-          startDate = new Date(year, month, 1);
-          endDate = new Date(year, month + 1, 0, 23, 59, 59);
-        } else {
-          return salesData;
-        }
-        break;
-      case "weekly":
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const dayOfWeek = today.getDay();
-        startDate = new Date(today);
-        startDate.setDate(today.getDate() - dayOfWeek);
-        endDate = new Date(startDate);
-        endDate.setDate(startDate.getDate() + 6);
-        endDate.setHours(23, 59, 59);
-        break;
-      case "daily":
-        const todayDaily = new Date();
-        todayDaily.setHours(0, 0, 0, 0);
-        startDate = new Date(todayDaily);
-        endDate = new Date(todayDaily);
-        endDate.setHours(23, 59, 59);
-        break;
-      case "tomorrow":
-        const todayTomorrow = new Date();
-        todayTomorrow.setHours(0, 0, 0, 0);
-        startDate = new Date(todayTomorrow);
-        startDate.setDate(todayTomorrow.getDate() + 1);
-        endDate = new Date(startDate);
-        endDate.setHours(23, 59, 59);
-        break;
-      case "custom":
-        if (customFromDate && customToDate) {
-          startDate = new Date(customFromDate);
-          endDate = new Date(customToDate);
-          endDate.setHours(23, 59, 59);
-        } else {
-          return salesData;
-        }
-        break;
-      default:
-        return salesData;
+  const metadata = dashboardData?.metadata ?? {};
+  const availableYears = metadata.availableYears ?? [];
+  const availableMonthsByYear = metadata.availableMonthsByYear ?? {};
+  const availableMonths = useMemo(() => {
+    if (!selectedYear) {
+      return [];
     }
 
-    return salesData.filter((item) => {
-      const itemDate = new Date(item.date);
-      return itemDate >= startDate && itemDate <= endDate;
-    });
-  };
+    return (
+      availableMonthsByYear[selectedYear] ??
+      availableMonthsByYear[Number(selectedYear)] ??
+      []
+    );
+  }, [availableMonthsByYear, selectedYear]);
 
-  const filteredData = useMemo(
-    () => getFilteredData(),
-    [filterType, selectedYear, selectedMonth, customFromDate, customToDate]
+  const totals = dashboardData?.totals ?? {};
+  const highlights = dashboardData?.highlights ?? {};
+  const charts = dashboardData?.charts ?? {};
+  const storeBlocks = dashboardData?.stores ?? {};
+
+  const stats = useMemo(
+    () => ({
+      totalQuantity: totals.totalQuantity ?? 0,
+      totalStores: totals.totalStores ?? 0,
+      topCategories: highlights.topCategories ?? [],
+      topProducts: highlights.topProducts ?? [],
+    }),
+    [totals, highlights]
   );
 
-  // Calculate statistics
-  const stats = useMemo(() => {
-    const totalQuantity = filteredData.reduce(
-      (sum, item) => sum + item.sale,
-      0
-    );
-    const uniqueStores = new Set(filteredData.map((item) => item.storename))
-      .size;
-
-    // Top categories
-    const categorySales = {};
-    filteredData.forEach((item) => {
-      categorySales[item.category] =
-        (categorySales[item.category] || 0) + item.sale;
-    });
-    const topCategories = Object.entries(categorySales)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 3)
-      .map(([category, sales]) => ({ category, sales }));
-
-    // Top products
-    const productSales = {};
-    filteredData.forEach((item) => {
-      productSales[item.product] =
-        (productSales[item.product] || 0) + item.sale;
-    });
-    const topProducts = Object.entries(productSales)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 3)
-      .map(([product, sales]) => ({ product, sales }));
-
-    return {
-      totalQuantity,
-      totalStores: uniqueStores,
-      topCategories,
-      topProducts,
-    };
-  }, [filteredData]);
-
-  // Sales stats overview data - multiple series for yearly/monthly filters
   const salesStatsData = useMemo(() => {
-    const monthNames = [
-      "Jan",
-      "Feb",
-      "Mar",
-      "Apr",
-      "May",
-      "Jun",
-      "Jul",
-      "Aug",
-      "Sep",
-      "Oct",
-      "Nov",
-      "Dec",
-    ];
-
-    // If yearly filter is selected, show all years as separate lines (monthly breakdown)
-    if (filterType === "yearly") {
-      const allYears = Array.from(availableYears).sort((a, b) => a - b);
-      const series = [];
-      const categories = monthNames;
-
-      allYears.forEach((year) => {
-        const yearData = new Array(12).fill(0); // Initialize with 12 months
-
-        salesData.forEach((item) => {
-          const itemDate = new Date(item.date);
-          const itemYear = itemDate.getFullYear();
-          const itemMonth = itemDate.getMonth();
-
-          if (itemYear === year) {
-            yearData[itemMonth] += item.sale;
-          }
-        });
-
-        series.push({
-          name: year.toString(),
-          data: yearData,
-        });
-      });
-
+    if (!charts.salesStats) {
       return {
-        dates: categories,
-        values: [], // Not used when we have multiple series
-        series: series,
-        isMultipleSeries: true,
-      };
-    }
-    // If monthly filter is selected, show all months as separate lines (weekly breakdown)
-    else if (filterType === "monthly" && selectedYear) {
-      const year = parseInt(selectedYear);
-      // Get months that have data in the selected year
-      const monthsInYear = new Set();
-      salesData.forEach((item) => {
-        const itemDate = new Date(item.date);
-        const itemYear = itemDate.getFullYear();
-        if (itemYear === year) {
-          monthsInYear.add(itemDate.getMonth());
-        }
-      });
-      const allMonths = Array.from(monthsInYear).sort((a, b) => a - b);
-      const series = [];
-
-      // Helper function to get week number in month (1-5)
-      const getWeekInMonth = (date) => {
-        const firstDay = new Date(date.getFullYear(), date.getMonth(), 1);
-        const firstDayOfWeek = firstDay.getDay();
-        const dayOfMonth = date.getDate();
-        const weekNumber = Math.ceil((dayOfMonth + firstDayOfWeek) / 7);
-        return weekNumber;
-      };
-
-      // Get all unique weeks across all months (Week 1, Week 2, Week 3, Week 4, Week 5)
-      const allWeeks = [1, 2, 3, 4, 5];
-      const categories = allWeeks.map((week) => `Week ${week}`);
-
-      allMonths.forEach((month) => {
-        const weekData = new Array(5).fill(0); // Initialize with 5 weeks
-
-        salesData.forEach((item) => {
-          const itemDate = new Date(item.date);
-          const itemYear = itemDate.getFullYear();
-          const itemMonth = itemDate.getMonth();
-
-          if (itemYear === year && itemMonth === month) {
-            const weekInMonth = getWeekInMonth(itemDate);
-            if (weekInMonth >= 1 && weekInMonth <= 5) {
-              weekData[weekInMonth - 1] += item.sale;
-            }
-          }
-        });
-
-        series.push({
-          name: monthNames[month],
-          data: weekData,
-        });
-      });
-
-      return {
-        dates: categories,
-        values: [], // Not used when we have multiple series
-        series: series,
-        isMultipleSeries: true,
-      };
-    }
-    // Default: single series grouped by date
-    else {
-      const dateGroups = {};
-      filteredData.forEach((item) => {
-        const date = item.date;
-        if (!dateGroups[date]) {
-          dateGroups[date] = 0;
-        }
-        dateGroups[date] += item.sale;
-      });
-
-      const sortedDates = Object.keys(dateGroups).sort();
-      return {
-        dates: sortedDates,
-        values: sortedDates.map((date) => dateGroups[date]),
-        series: [
-          {
-            name: "Sales",
-            data: sortedDates.map((date) => dateGroups[date]),
-          },
-        ],
+        dates: [],
+        values: [],
+        series: [],
         isMultipleSeries: false,
       };
     }
-  }, [filteredData, filterType, availableYears, availableMonths, selectedYear]);
 
-  // Category distribution data
-  const categoryDistribution = useMemo(() => {
-    const categorySales = {};
-    filteredData.forEach((item) => {
-      categorySales[item.category] =
-        (categorySales[item.category] || 0) + item.sale;
-    });
+    const labels = charts.salesStats.labels ?? [];
+    const series = charts.salesStats.series ?? [];
+    const isMultipleSeries =
+      charts.salesStats.isMultipleSeries ?? series.length > 1;
 
     return {
-      categories: Object.keys(categorySales),
-      values: Object.values(categorySales),
+      dates: labels,
+      values:
+        !isMultipleSeries && series.length > 0 ? series[0].data ?? [] : [],
+      series,
+      isMultipleSeries,
     };
-  }, [filteredData]);
+  }, [charts.salesStats]);
 
-  // Top products by sales
-  const topProductsBySales = useMemo(() => {
-    const productSales = {};
-    filteredData.forEach((item) => {
-      productSales[item.product] =
-        (productSales[item.product] || 0) + item.sale;
-    });
-
-    return Object.entries(productSales)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 10)
-      .map(([product, sales]) => ({ product, sales }));
-  }, [filteredData]);
-
-  // Top categories by sales
-  const topCategoriesBySales = useMemo(() => {
-    const categorySales = {};
-    filteredData.forEach((item) => {
-      categorySales[item.category] =
-        (categorySales[item.category] || 0) + item.sale;
-    });
-
-    return Object.entries(categorySales)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 10)
-      .map(([category, sales]) => ({ category, sales }));
-  }, [filteredData]);
-
-  // Top stores by sales (for chart)
-  const topStoresBySales = useMemo(() => {
-    const storeSales = {};
-    filteredData.forEach((item) => {
-      storeSales[item.storename] =
-        (storeSales[item.storename] || 0) + item.sale;
-    });
-
-    return Object.entries(storeSales)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 10)
-      .map(([storename, sales]) => ({ storename, sales }));
-  }, [filteredData]);
-
-  // Calculate dynamic target based on actual sales to show 50-60% progress
-  const currentTarget = useMemo(() => {
-    if (filteredData.length === 0 || stats.totalQuantity === 0) return 0;
-
-    // Calculate target as 1.67x to 2x of actual sales to show 50-60% progress
-    // Using 1.8x multiplier to show approximately 55% progress
-    const multiplier = 1.8;
-    const calculatedTarget = Math.ceil(stats.totalQuantity * multiplier);
-
-    // Round to nearest thousand for cleaner display, with minimum of 1000
-    const roundedTarget = Math.max(
-      1000,
-      Math.ceil(calculatedTarget / 1000) * 1000
-    );
-
-    return roundedTarget;
-  }, [filteredData, stats.totalQuantity]);
-
-  // Calculate target progress
-  const targetProgress = useMemo(() => {
-    if (currentTarget === 0) return 0;
-    return Math.min((stats.totalQuantity / currentTarget) * 100, 100);
-  }, [stats.totalQuantity, currentTarget]);
-
-  // Calculate remaining target
-  const remainingTarget = useMemo(() => {
-    return Math.max(currentTarget - stats.totalQuantity, 0);
-  }, [currentTarget, stats.totalQuantity]);
-
-  // Calculate today's sales
-  const todaySales = useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const todayStr = today.toISOString().split("T")[0];
-    return filteredData
-      .filter((item) => item.date === todayStr)
-      .reduce((sum, item) => sum + item.sale, 0);
-  }, [filteredData]);
-
-  // Calculate previous period sales for comparison
-  const previousPeriodSales = useMemo(() => {
-    let startDate, endDate;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    if (filterType === "yearly" && selectedYear) {
-      const year = parseInt(selectedYear);
-      startDate = new Date(year - 1, 0, 1);
-      endDate = new Date(year - 1, 11, 31, 23, 59, 59);
-    } else if (filterType === "monthly" && selectedYear && selectedMonth) {
-      const year = parseInt(selectedYear);
-      const month = parseInt(selectedMonth);
-      startDate = new Date(year, month - 1, 1);
-      endDate = new Date(year, month, 0, 23, 59, 59);
-    } else {
-      return 0;
+  const categoryDistribution = useMemo(() => {
+    if (!charts.categoryDistribution) {
+      return {
+        categories: [],
+        values: [],
+      };
     }
 
-    return salesData
-      .filter((item) => {
-        const itemDate = new Date(item.date);
-        return itemDate >= startDate && itemDate <= endDate;
-      })
-      .reduce((sum, item) => sum + item.sale, 0);
-  }, [filterType, selectedYear, selectedMonth]);
-
-  // Calculate percentage change
-  const percentageChange = useMemo(() => {
-    if (previousPeriodSales === 0) return 0;
-    return (
-      ((stats.totalQuantity - previousPeriodSales) / previousPeriodSales) * 100
-    );
-  }, [stats.totalQuantity, previousPeriodSales]);
-
-  // Monthly sales data for line chart (last 12 months)
-  const monthlySalesData = useMemo(() => {
-    const monthlyData = {};
-    const monthNames = [
-      "Jan",
-      "Feb",
-      "Mar",
-      "Apr",
-      "May",
-      "Jun",
-      "Jul",
-      "Aug",
-      "Sep",
-      "Oct",
-      "Nov",
-      "Dec",
-    ];
-
-    filteredData.forEach((item) => {
-      const date = new Date(item.date);
-      const monthKey = `${monthNames[date.getMonth()]}`;
-      if (!monthlyData[monthKey]) {
-        monthlyData[monthKey] = 0;
-      }
-      monthlyData[monthKey] += item.sale;
-    });
-
-    // Get all months in order
-    const sortedMonths = Object.keys(monthlyData).sort((a, b) => {
-      return monthNames.indexOf(a) - monthNames.indexOf(b);
-    });
-
     return {
-      months: sortedMonths,
-      sales: sortedMonths.map((month) => monthlyData[month] || 0),
+      categories: charts.categoryDistribution.labels ?? [],
+      values: charts.categoryDistribution.values ?? [],
     };
-  }, [filteredData]);
+  }, [charts.categoryDistribution]);
 
-  // Top stores performance
-  const topStores = useMemo(() => {
-    const storeSales = {};
-    filteredData.forEach((item) => {
-      if (!storeSales[item.storename]) {
-        storeSales[item.storename] = {
-          totalSales: 0,
-          categories: {},
-          products: {},
-        };
-      }
-      storeSales[item.storename].totalSales += item.sale;
-      storeSales[item.storename].categories[item.category] =
-        (storeSales[item.storename].categories[item.category] || 0) + item.sale;
-      storeSales[item.storename].products[item.product] =
-        (storeSales[item.storename].products[item.product] || 0) + item.sale;
-    });
+  const topProductsBySales = charts.topProducts ?? [];
+  const topStoresBySales = charts.topStores ?? [];
+  const monthlySalesData = charts.monthlySales ?? { months: [], sales: [] };
+  const topStores = storeBlocks.ranking ?? [];
 
-    return Object.entries(storeSales)
-      .map(([storename, data]) => ({
-        storename,
-        totalSales: data.totalSales,
-        topCategory:
-          Object.entries(data.categories).sort((a, b) => b[1] - a[1])[0]?.[0] ||
-          "N/A",
-        topProduct:
-          Object.entries(data.products).sort((a, b) => b[1] - a[1])[0]?.[0] ||
-          "N/A",
-      }))
-      .sort((a, b) => b.totalSales - a.totalSales)
-      .slice(0, 10);
-  }, [filteredData]);
+  const currentTarget = totals.currentTarget ?? 0;
+  const targetProgress = Math.min(Math.max(totals.targetProgress ?? 0, 0), 100);
+  const remainingTarget =
+    totals.remainingTarget ?? Math.max(currentTarget - stats.totalQuantity, 0);
+  const todaySales = totals.todaySales ?? 0;
+  const percentageChange = totals.percentageChange ?? 0;
+
+  const isInitialLoading = isLoading && !dashboardData;
+  const errorMessage =
+    error?.response?.data?.error?.message ||
+    error?.response?.data?.error ||
+    error?.message ||
+    null;
 
   // Chart options
   const salesStatsChartOptions = useMemo(
@@ -680,7 +341,9 @@ const DashBoardLayerOne = () => {
       colors: ["transparent"],
     },
     xaxis: {
-      categories: topProductsBySales.map((item) => item.product),
+      categories: topProductsBySales.map(
+        (item) => item.product || "Unknown Product"
+      ),
       labels: {
         rotate: -45,
         rotateAlways: true,
@@ -726,7 +389,7 @@ const DashBoardLayerOne = () => {
   const topProductsBarChartSeries = [
     {
       name: "Sales",
-      data: topProductsBySales.map((item) => item.sales),
+      data: topProductsBySales.map((item) => item.sales ?? 0),
     },
   ];
 
@@ -765,7 +428,9 @@ const DashBoardLayerOne = () => {
     },
     colors: ["#10B981"],
     xaxis: {
-      categories: topStoresBySales.map((item) => item.storename),
+      categories: topStoresBySales.map(
+        (item) => item.storename || "Unknown Store"
+      ),
       labels: {
         style: {
           fontSize: "12px",
@@ -821,7 +486,7 @@ const DashBoardLayerOne = () => {
   const topStoresBarChartSeries = [
     {
       name: "Sales",
-      data: topStoresBySales.map((item) => item.sales),
+      data: topStoresBySales.map((item) => item.sales ?? 0),
     },
   ];
 
@@ -947,19 +612,60 @@ const DashBoardLayerOne = () => {
             <div className="col-md-2">
               <label className="form-label fw-semibold d-block">&nbsp;</label>
               <button
-                className="btn btn-primary w-100"
-                onClick={() => {
-                  // Force re-render by updating state
-                  setFilterType(filterType);
-                }}
+                className="btn btn-primary w-100 d-flex align-items-center justify-content-center"
+                disabled={
+                  isFetching || isInitialLoading || isCustomRangeIncomplete
+                }
+                onClick={() => refetch()}
               >
-                <Icon icon="solar:filter-bold" className="me-2" />
-                Apply Filter
+                {isFetching ? (
+                  <>
+                    <span
+                      className="spinner-border spinner-border-sm me-2"
+                      role="status"
+                      aria-hidden="true"
+                    ></span>
+                    Updating...
+                  </>
+                ) : (
+                  <>
+                    <Icon icon="solar:filter-bold" className="me-2" />
+                    Apply Filter
+                  </>
+                )}
               </button>
             </div>
           </div>
         </div>
       </div>
+
+      {isError && (
+        <div className="alert alert-danger mb-4" role="alert">
+          Failed to load dashboard data
+          {errorMessage ? `: ${errorMessage}` : "."}
+        </div>
+      )}
+
+      {isCustomRangeIncomplete && (
+        <div className="alert alert-warning mb-4" role="alert">
+          Select both From and To dates to run the custom filter.
+        </div>
+      )}
+
+      {isInitialLoading && (
+        <div className="card mb-4">
+          <div className="card-body d-flex align-items-center gap-3">
+            <span
+              className="spinner-border text-primary"
+              role="status"
+              aria-hidden="true"
+            ></span>
+            <span className="fw-semibold text-primary mb-0">
+              Loading dashboard data...
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Top Bar Statistics */}
 
@@ -1427,31 +1133,31 @@ const DashBoardLayerOne = () => {
                   </thead>
                   <tbody>
                     {topStores.map((store, index) => (
-                      <tr key={store.storename}>
+                      <tr key={`${store.storeId ?? store.storename ?? index}`}>
                         <td>
                           <span className="badge bg-primary">{index + 1}</span>
                         </td>
                         <td className="fw-semibold">
                           <Link
                             href={`/store/${encodeURIComponent(
-                              store.storename
+                              store.storename || "unknown-store"
                             )}`}
                             className="text-primary text-decoration-none"
                           >
-                            {store.storename}
+                            {store.storename || "Unknown Store"}
                           </Link>
                         </td>
                         <td className="text-end fw-bold">
-                          {store.totalSales.toLocaleString()}
+                          {(store.totalSales ?? 0).toLocaleString()}
                         </td>
                         <td>
                           <span className="badge bg-info">
-                            {store.topCategory}
+                            {store.topCategory || "N/A"}
                           </span>
                         </td>
                         <td>
                           <span className="badge bg-success">
-                            {store.topProduct}
+                            {store.topProduct || "N/A"}
                           </span>
                         </td>
                       </tr>
